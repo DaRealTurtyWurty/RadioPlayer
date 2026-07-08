@@ -1,0 +1,29 @@
+# eclipse
+bin
+*.launch
+.eclipse
+.settings
+.metadata
+.classpath
+.project
+eclipse
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+run
+runs
+runserver
+logs
+*.log
+
+common/src/generated/resources/.cache

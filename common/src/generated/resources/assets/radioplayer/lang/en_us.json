@@ -1,0 +1,16 @@
+{
+  "block.radioplayer.radio_player": "Radio Player",
+  "screen.radioplayer.radio_player": "Radio Player",
+  "screen.radioplayer.radio_player.invalid_url": "Invalid radio URL",
+  "screen.radioplayer.radio_player.invalid_url.description": "That URL does not provide a playable audio stream.",
+  "screen.radioplayer.radio_player.nickname": "Nickname",
+  "screen.radioplayer.radio_player.play": "Play",
+  "screen.radioplayer.radio_player.station.add": "Save Station",
+  "screen.radioplayer.radio_player.station.edit": "Edit",
+  "screen.radioplayer.radio_player.station.remove": "Delete",
+  "screen.radioplayer.radio_player.stations": "Saved Stations",
+  "screen.radioplayer.radio_player.stations.empty": "No saved stations",
+  "screen.radioplayer.radio_player.stop": "Stop",
+  "screen.radioplayer.radio_player.url.apply": "Apply",
+  "screen.radioplayer.radio_player.url": "Stream URL"
+}
