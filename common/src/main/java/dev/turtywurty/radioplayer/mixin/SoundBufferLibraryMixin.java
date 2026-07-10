@@ -26,7 +26,7 @@ public class SoundBufferLibraryMixin {
 
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
-                LavaPlayerAudioStream stream = new LavaPlayerAudioStream(url);
+                AudioStream stream = LavaPlayerAudioStream.open(url);
                 RadioSoundInstance.markReady(location);
                 return stream;
             } catch (IOException exception) {
