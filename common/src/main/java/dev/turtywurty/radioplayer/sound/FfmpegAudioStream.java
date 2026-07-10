@@ -2,6 +2,7 @@ package dev.turtywurty.radioplayer.sound;
 
 import dev.turtywurty.radioplayer.Radioplayer;
 import net.minecraft.client.sounds.AudioStream;
+import net.minecraft.util.Util;
 import org.jspecify.annotations.NonNull;
 import org.lwjgl.BufferUtils;
 
@@ -89,7 +90,7 @@ public final class FfmpegAudioStream implements AudioStream {
                 } catch (IOException exception) {
                     throw new FfmpegReadException(exception);
                 }
-            }).get(STARTUP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            }, Util.nonCriticalIoPool()).get(STARTUP_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (bytes.length == INITIAL_PCM_BYTES)
                 return bytes;
 
