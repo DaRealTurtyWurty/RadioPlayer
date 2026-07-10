@@ -11,6 +11,8 @@ dependencies {
     minecraft libs.minecraft
     implementation libs.fabricLoader
     implementation libs.fabricApi
+    runtimeOnly libs.modMenu
+    runtimeOnly libs.clothConfig
 }
 
 apply from: rootProject.file('repositories.gradle')

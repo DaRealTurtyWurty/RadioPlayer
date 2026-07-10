@@ -51,10 +51,22 @@ public class LavaPlayerAudioStream implements AudioStream {
         this.pendingFrame = firstFrame.getData();
     }
 
+    public static AudioStream open(String url) throws IOException {
+        try {
+            return new LavaPlayerAudioStream(url);
+        } catch (IOException | RuntimeException exception) {
+            AudioStream ffmpegStream = FfmpegAudioStream.tryCreate(url, detectSampleRate(url));
+            if (ffmpegStream != null)
+                return ffmpegStream;
+
+            throw exception;
+        }
+    }
+
     @SuppressWarnings("EmptyTryBlock")
     public static void validate(String url) throws IOException {
         Radioplayer.LOGGER.info("Validating radio stream: {}", url);
-        try (LavaPlayerAudioStream ignored = new LavaPlayerAudioStream(url)) {
+        try (AudioStream ignored = open(url)) {
             // Opening the stream and receiving an initial frame proves Lavaplayer can play it.
             Radioplayer.LOGGER.info("Radio stream validation succeeded: {}", url);
         } catch (IOException | RuntimeException exception) {

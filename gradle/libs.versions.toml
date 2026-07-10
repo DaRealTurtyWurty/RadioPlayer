@@ -11,6 +11,8 @@ fabricApi = "0.154.0+26.2"
 fabricLoader = "0.19.3"
 kuma = "26.2.0.2"
 lavaplayer = "2.2.7"
+modMenu = "20.0.1"
+clothConfig = "26.2.155+fabric"
 
 [libraries]
 minecraft = { module = "com.mojang:minecraft", version.ref = "minecraft" }
@@ -30,6 +32,8 @@ neoForm = { module = "net.neoforged:neoform", version.ref = "neoForm" }
 neoForge = { module = "net.neoforged:neoforge", version.ref = "neoForge" }
 fabricApi = { module = "net.fabricmc.fabric-api:fabric-api", version.ref = "fabricApi" }
 fabricLoader = { module = "net.fabricmc:fabric-loader", version.ref = "fabricLoader" }
+modMenu = { module = "maven.modrinth:modmenu", version.ref = "modMenu" }
+clothConfig = { module = "maven.modrinth:cloth-config", version.ref = "clothConfig" }
 
 mixin = { module = "org.spongepowered:mixin", version = "0.8.7" }
 

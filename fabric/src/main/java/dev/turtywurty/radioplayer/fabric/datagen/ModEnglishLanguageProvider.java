@@ -32,6 +32,11 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         add(translationBuilder, RadioPlayerScreen.STOP_BUTTON, "Stop");
         add(translationBuilder, RadioPlayerScreen.INVALID_URL_TITLE, "Invalid radio URL");
         add(translationBuilder, RadioPlayerScreen.INVALID_URL_DESCRIPTION, "That URL does not provide a playable audio stream.");
+        translationBuilder.add("radioplayer.configuration.title", "Radio Player Configuration");
+        translationBuilder.add("radioplayer.configuration", "General");
+        translationBuilder.add("radioplayer.configuration.ffmpegExecutablePath", "FFmpeg Executable Path");
+        translationBuilder.add("radioplayer.configuration.ffmpegExecutablePath.tooltip",
+                "Optional absolute path to FFmpeg. Used only when Lavaplayer cannot play a stream directly.");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {
