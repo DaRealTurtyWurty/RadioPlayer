@@ -55,6 +55,12 @@ jobs:
             https://github.com/FFmpeg/FFmpeg.git \
             ffmpeg-source
 
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          brew install nasm
+
       - name: Configure FFprobe
         working-directory: ffmpeg-source
         shell: bash
