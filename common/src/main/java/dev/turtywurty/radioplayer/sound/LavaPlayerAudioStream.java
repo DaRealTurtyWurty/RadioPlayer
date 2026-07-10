@@ -63,11 +63,10 @@ public class LavaPlayerAudioStream implements AudioStream {
         }
     }
 
-    @SuppressWarnings("EmptyTryBlock")
     public static void validate(String url) throws IOException {
         Radioplayer.LOGGER.info("Validating radio stream: {}", url);
-        try (AudioStream ignored = open(url)) {
-            // Opening the stream and receiving an initial frame proves Lavaplayer can play it.
+        try (AudioStream _ = open(url)) {
+            // Opening the stream and receiving an initial frame proves the URL is playable (via Lavaplayer or the optional FFmpeg fallback).
             Radioplayer.LOGGER.info("Radio stream validation succeeded: {}", url);
         } catch (IOException | RuntimeException exception) {
             Radioplayer.LOGGER.warn("Radio stream validation failed: {}", url, exception);

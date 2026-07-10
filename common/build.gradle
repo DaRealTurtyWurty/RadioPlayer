@@ -1,6 +1,7 @@
 import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.net.URLClassLoader
 import java.util.zip.ZipFile
 
 plugins {
@@ -56,7 +57,6 @@ def ffprobeNatives = [
 
 def ffprobeDownloadDir = layout.buildDirectory.dir('ffprobe/downloads')
 def ffprobeResourceRootDir = layout.buildDirectory.dir('generated/ffprobeResources')
-def execOperations = services.get(ExecOperations)
 
 static String sha256(File file) {
     def digest = MessageDigest.getInstance('SHA-256')
@@ -90,6 +90,12 @@ apply from: rootProject.file('repositories.gradle')
 apply from: 'dependencies.gradle'
 
 configurations {
+    ffprobeExtractor {
+        canBeResolved = true
+        canBeConsumed = false
+        transitive = false
+    }
+
     commonJava {
         canBeResolved = false
         canBeConsumed = true
@@ -102,6 +108,10 @@ configurations {
         canBeResolved = false
         canBeConsumed = true
     }
+}
+
+dependencies {
+    ffprobeExtractor 'org.tukaani:xz:1.10'
 }
 
 sourceSets {
@@ -125,10 +135,20 @@ tasks.register('downloadFfprobeNatives') {
 
             if (!outputFile.exists()) {
                 logger.lifecycle("Downloading ${nativeBin.id} FFprobe...")
-                nativeBin.url.toURL().withInputStream { input ->
-                    outputFile.withOutputStream { output ->
-                        output << input
+                def connection = nativeBin.url.toURL().openConnection()
+                connection.connectTimeout = 30_000
+                connection.readTimeout = 120_000
+                connection.setRequestProperty('User-Agent', 'RadioPlayer Gradle build')
+
+                try {
+                    connection.inputStream.withCloseable { input ->
+                        outputFile.withOutputStream { output ->
+                            output << input
+                        }
                     }
+                } catch (Exception exception) {
+                    outputFile.delete()
+                    throw new GradleException("Failed to download FFprobe for ${nativeBin.id}", exception)
                 }
             }
 
@@ -161,11 +181,40 @@ def extractZipEntry = { File archiveFile, String entryName, File outputFile ->
 }
 
 def extractTarXzEntry = { File archiveFile, String entryName, File outputFile ->
-    outputFile.withOutputStream { output ->
-        execOperations.exec {
-            commandLine 'tar', '-xOf', archiveFile.absolutePath, entryName
-            standardOutput = output
+    boolean extracted = false
+    archiveFile.withInputStream { fileInput ->
+        def tarInputClass = Class.forName(
+                'org.apache.commons.compress.archivers.tar.TarArchiveInputStream',
+                true,
+                gradle.class.classLoader
+        )
+        URLClassLoader xzClassLoader = new URLClassLoader(
+                configurations.ffprobeExtractor.collect { it.toURI().toURL() } as URL[],
+                tarInputClass.classLoader
+        )
+        def xzInput = xzClassLoader.loadClass('org.tukaani.xz.XZInputStream')
+                .getConstructor(InputStream)
+                .newInstance(fileInput)
+        def tarInput = tarInputClass.getConstructor(InputStream).newInstance(xzInput)
+        try {
+            def entry
+            while ((entry = tarInputClass.getMethod('getNextTarEntry').invoke(tarInput)) != null) {
+                if (entry.name == entryName) {
+                    outputFile.withOutputStream { output ->
+                        output << tarInput
+                    }
+                    extracted = true
+                    break
+                }
+            }
+        } finally {
+            tarInput.close()
+            xzClassLoader.close()
         }
+    }
+
+    if (!extracted) {
+        throw new GradleException("Missing ${entryName} in ${archiveFile.absolutePath}")
     }
 }
 
