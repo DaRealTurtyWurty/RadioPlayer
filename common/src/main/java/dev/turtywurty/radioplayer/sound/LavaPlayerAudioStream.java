@@ -55,7 +55,12 @@ public class LavaPlayerAudioStream implements AudioStream {
         try {
             return new LavaPlayerAudioStream(url);
         } catch (IOException | RuntimeException exception) {
-            AudioStream ffmpegStream = FfmpegAudioStream.tryCreate(url, detectSampleRate(url));
+            AudioStream ffmpegStream = null;
+            try {
+                ffmpegStream = FfmpegAudioStream.tryCreate(url, detectSampleRate(url));
+            } catch (IOException | RuntimeException ffmpegException) {
+                Radioplayer.LOGGER.warn("FFmpeg fallback failed for {}; rethrowing original error", url, ffmpegException);
+            }
             if (ffmpegStream != null)
                 return ffmpegStream;
 
