@@ -1,6 +1,75 @@
+import java.security.MessageDigest
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipFile
+
 plugins {
     id 'multiloader-common'
     alias libs.plugins.modDevGradle
+}
+
+class FfprobeNative {
+    String id
+    String url
+    String sha256
+    String binaryPathInArchive
+    String outputName
+}
+
+def ffprobeNatives = [
+        new FfprobeNative(
+                id: 'windows-x64',
+                url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-N-125505-gc57660fb18-win64-lgpl.zip',
+                sha256: '318f64dcb942bdf3242597aa50de0c6b2cb828b1c03205a49ff62d348ec4b32b',
+                binaryPathInArchive: 'ffmpeg-N-125505-gc57660fb18-win64-lgpl/bin/ffprobe.exe',
+                outputName: 'ffprobe.exe'
+        ),
+        new FfprobeNative(
+                id: 'linux-x64',
+                url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-N-125505-gc57660fb18-linux64-lgpl.tar.xz',
+                sha256: '11f56cf617367175bc1a502c2945491f5d373262abf130f0062ba9ddb853c8e1',
+                binaryPathInArchive: 'ffmpeg-N-125505-gc57660fb18-linux64-lgpl/bin/ffprobe',
+                outputName: 'ffprobe'
+        ),
+        new FfprobeNative(
+                id: 'linux-arm64',
+                url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-N-125505-gc57660fb18-linuxarm64-lgpl.tar.xz',
+                sha256: '473ec632361c8ceefba1e02bc91c5176de646c5ee593c1b63ea43cea100509db',
+                binaryPathInArchive: 'ffmpeg-N-125505-gc57660fb18-linuxarm64-lgpl/bin/ffprobe',
+                outputName: 'ffprobe'
+        ),
+        new FfprobeNative(
+                id: "macos-x64",
+                url: "https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffprobe-n8.1.2/ffprobe-macos-x64.zip",
+                sha256: "5912f200dd109e7bd3565367a48499f3fbf1e367605474868f6b792835e1fb68",
+                binaryPathInArchive: "macos-x64/ffprobe",
+                outputName: "ffprobe"
+        ),
+        new FfprobeNative(
+                id: "macos-arm64",
+                url: "https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffprobe-n8.1.2/ffprobe-macos-arm64.zip",
+                sha256: "e9db505f8f1e245367b4e77586452e35961608d6a2cad217b7684d2f73c360f7",
+                binaryPathInArchive: "macos-arm64/ffprobe",
+                outputName: "ffprobe"
+        )
+]
+
+def ffprobeDownloadDir = layout.buildDirectory.dir('ffprobe/downloads')
+def ffprobeResourceRootDir = layout.buildDirectory.dir('generated/ffprobeResources')
+def execOperations = services.get(ExecOperations)
+
+static String sha256(File file) {
+    def digest = MessageDigest.getInstance('SHA-256')
+
+    file.withInputStream { input ->
+        byte[] buffer = new byte[8192]
+        int read
+        while ((read = input.read(buffer)) != -1) {
+            digest.update(buffer, 0, read)
+        }
+    }
+
+    return digest.digest().collect { String.format('%02x', it) }.join()
 }
 
 neoForge {
@@ -43,8 +112,99 @@ sourceSets {
     }
 }
 
+tasks.register('downloadFfprobeNatives') {
+    outputs.dir(ffprobeDownloadDir)
+
+    doLast {
+        def outputDir = ffprobeDownloadDir.get().asFile
+        outputDir.mkdirs()
+
+        ffprobeNatives.each { nativeBin ->
+            def fileName = nativeBin.url.substring(nativeBin.url.lastIndexOf('/') + 1)
+            def outputFile = new File(outputDir, fileName)
+
+            if (!outputFile.exists()) {
+                logger.lifecycle("Downloading ${nativeBin.id} FFprobe...")
+                nativeBin.url.toURL().withInputStream { input ->
+                    outputFile.withOutputStream { output ->
+                        output << input
+                    }
+                }
+            }
+
+            def actualSha256 = sha256(outputFile)
+            if (!actualSha256.equalsIgnoreCase(nativeBin.sha256)) {
+                throw new GradleException("""SHA-256 mismatch for ${nativeBin.id}
+Expected: ${nativeBin.sha256}
+Actual:   ${actualSha256}
+File:     ${outputFile.absolutePath}
+""")
+            }
+        }
+    }
+}
+
+def extractZipEntry = { File archiveFile, String entryName, File outputFile ->
+    ZipFile zipFile = new ZipFile(archiveFile)
+    try {
+        def entry = zipFile.getEntry(entryName)
+        if (entry == null) {
+            throw new GradleException("Missing ${entryName} in ${archiveFile.absolutePath}")
+        }
+
+        zipFile.getInputStream(entry).withCloseable { input ->
+            Files.copy(input, outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    } finally {
+        zipFile.close()
+    }
+}
+
+def extractTarXzEntry = { File archiveFile, String entryName, File outputFile ->
+    outputFile.withOutputStream { output ->
+        execOperations.exec {
+            commandLine 'tar', '-xOf', archiveFile.absolutePath, entryName
+            standardOutput = output
+        }
+    }
+}
+
+tasks.register('extractFfprobeNatives') {
+    dependsOn('downloadFfprobeNatives')
+
+    outputs.dir(ffprobeResourceRootDir)
+
+    doLast {
+        def outputDir = ffprobeResourceRootDir.get().asFile
+        delete(outputDir)
+        outputDir.mkdirs()
+
+        ffprobeNatives.each { nativeBin ->
+            def fileName = nativeBin.url.substring(nativeBin.url.lastIndexOf('/') + 1)
+            def archiveFile = new File(ffprobeDownloadDir.get().asFile, fileName)
+            def outputFile = new File(outputDir, "ffprobe/${nativeBin.id}/${nativeBin.outputName}")
+            outputFile.parentFile.mkdirs()
+
+            if (nativeBin.url.endsWith('.zip')) {
+                extractZipEntry(archiveFile, nativeBin.binaryPathInArchive, outputFile)
+            } else if (nativeBin.url.endsWith('.tar.xz')) {
+                extractTarXzEntry(archiveFile, nativeBin.binaryPathInArchive, outputFile)
+            } else {
+                throw new GradleException("Unsupported archive type: ${nativeBin.url}")
+            }
+        }
+    }
+}
+
+tasks.named('processResources') {
+    dependsOn('extractFfprobeNatives')
+}
+
 artifacts {
     commonJava sourceSets.main.java.sourceDirectories.singleFile
     commonResources sourceSets.main.resources.sourceDirectories.singleFile
     commonGeneratedResources sourceSets.generated.resources.sourceDirectories.singleFile
+    commonGeneratedResources(ffprobeResourceRootDir) {
+        builtBy tasks.named('extractFfprobeNatives')
+    }
 }

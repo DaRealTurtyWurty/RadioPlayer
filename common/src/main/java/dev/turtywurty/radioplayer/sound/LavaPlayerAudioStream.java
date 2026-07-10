@@ -11,26 +11,26 @@ import com.sedmelluq.discord.lavaplayer.track.AudioItem;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
+import dev.turtywurty.radioplayer.Radioplayer;
+import dev.turtywurty.radioplayer.client.FfprobeNativeExtractor;
 import net.minecraft.client.sounds.AudioStream;
 import org.jspecify.annotations.NonNull;
 import org.lwjgl.BufferUtils;
 
 import javax.sound.sampled.AudioFormat;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.URLConnection;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public class LavaPlayerAudioStream implements AudioStream {
-    private static final int DEFAULT_SAMPLE_RATE = 44100;
+    private static final int DEFAULT_SAMPLE_RATE = 44_100;
     private static final int FRAME_TIMEOUT_MS = 250;
-    private static final int MAX_PLAYLIST_DEPTH = 3;
+    private static final long FFPROBE_TIMEOUT_MS = 10_000;
 
     private final AudioPlayer player;
     private final AudioFormat format;
@@ -43,7 +43,7 @@ public class LavaPlayerAudioStream implements AudioStream {
         AudioTrack track = loadTrack(playerManager, url);
         this.player = playerManager.createPlayer();
         this.player.playTrack(track);
-        AudioFrame firstFrame = provideFrame(10);
+        AudioFrame firstFrame = provideFrame(10, TimeUnit.SECONDS);
         if (firstFrame == null)
             throw new IOException("Timed out waiting for initial audio data from URL: " + url);
 
@@ -51,6 +51,7 @@ public class LavaPlayerAudioStream implements AudioStream {
         this.pendingFrame = firstFrame.getData();
     }
 
+    @SuppressWarnings("EmptyTryBlock")
     public static void validate(String url) throws IOException {
         try (LavaPlayerAudioStream _ = new LavaPlayerAudioStream(url)) {
             // Opening the stream and receiving an initial frame proves Lavaplayer can play it.
@@ -84,224 +85,45 @@ public class LavaPlayerAudioStream implements AudioStream {
     }
 
     private static int detectSampleRate(String url) {
-        try {
-            int sampleRate = detectSampleRate(URI.create(url), 0);
-            return sampleRate > 0 ? sampleRate : DEFAULT_SAMPLE_RATE;
-        } catch (Exception exception) {
+        Path ffprobe = FfprobeNativeExtractor.getExecutablePath();
+        if (ffprobe == null || !Files.isRegularFile(ffprobe)) {
+            Radioplayer.LOGGER.warn("FFprobe is unavailable; using the default sample rate for {}", url);
             return DEFAULT_SAMPLE_RATE;
         }
-    }
 
-    private static int detectSampleRate(URI uri, int playlistDepth) throws IOException {
-        URLConnection connection = uri.toURL().openConnection();
-        connection.setConnectTimeout(5000);
-        connection.setReadTimeout(5000);
-        connection.setRequestProperty("Icy-MetaData", "0");
+        try {
+            Process process = new ProcessBuilder(
+                    ffprobe.toString(),
+                    "-v", "error",
+                    "-rw_timeout", "5000000",
+                    "-select_streams", "a:0",
+                    "-show_entries", "stream=sample_rate",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    url)
+                    .redirectErrorStream(true)
+                    .start();
 
-        try (InputStream inputStream = connection.getInputStream()) {
-            if (playlistDepth < MAX_PLAYLIST_DEPTH && isPlaylist(uri, connection)) {
-                URI mediaUri = firstPlaylistMediaUri(uri, inputStream);
-                return mediaUri == null ? -1 : detectSampleRate(mediaUri, playlistDepth + 1);
+            if (!process.waitFor(FFPROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly();
+                throw new IOException("FFprobe timed out");
             }
 
-            if (isMpegTs(uri, connection)) {
-                int sampleRate = detectMpegTsSampleRate(inputStream);
-                return sampleRate > 0 ? sampleRate : -1;
-            }
+            var output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            if (process.exitValue() != 0)
+                throw new IOException("FFprobe exited with code " + process.exitValue() + ": " + output);
 
-            return detectMp3SampleRate(inputStream);
-        }
-    }
-
-    private static boolean isPlaylist(URI uri, URLConnection connection) {
-        String path = uri.getPath();
-        String contentType = connection.getContentType();
-        return path != null && path.endsWith(".m3u8") ||
-                contentType != null && (contentType.contains("mpegurl") || contentType.contains("vnd.apple.mpegurl"));
-    }
-
-    private static boolean isMpegTs(URI uri, URLConnection connection) {
-        String path = uri.getPath();
-        String contentType = connection.getContentType();
-        return path != null && path.endsWith(".ts") ||
-                contentType != null && (contentType.contains("mp2t") || contentType.contains("mpegts"));
-    }
-
-    private static URI firstPlaylistMediaUri(URI playlistUri, InputStream inputStream) throws IOException {
-        String playlist = new String(inputStream.readNBytes(1024 * 1024), StandardCharsets.UTF_8);
-        for (String line : playlist.split("\\R")) {
-            String trimmedLine = line.trim();
-            if (!trimmedLine.isEmpty() && !trimmedLine.startsWith("#"))
-                return playlistUri.resolve(trimmedLine);
-        }
-
-        return null;
-    }
-
-    private static int detectMp3SampleRate(InputStream inputStream) throws IOException {
-        int previous = -1;
-        int current;
-        while ((current = inputStream.read()) != -1) {
-            if (previous == 0xFF && (current & 0xE0) == 0xE0) {
-                int third = inputStream.read();
-                int fourth = inputStream.read();
-                if (third == -1 || fourth == -1)
-                    return -1;
-
-                int header = 0xFFE00000 | (current << 16) | (third << 8) | fourth;
-                int sampleRate = sampleRateFromMp3Header(header);
-                if (sampleRate <= 0 && (current & 0xF0) == 0xF0) {
-                    sampleRate = sampleRateFromAacHeader(current, third);
-                }
-
-                if (sampleRate > 0) {
-                    return sampleRate;
-                }
-            }
-
-            previous = current;
-        }
-
-        return -1;
-    }
-
-    private static int detectMpegTsSampleRate(InputStream inputStream) throws IOException {
-        ByteArrayOutputStream payload = new ByteArrayOutputStream();
-        byte[] packet = new byte[188];
-        int packetsRead = 0;
-        int audioPid = -1;
-
-        while (packetsRead++ < 256 && readFully(inputStream, packet)) {
-            if (packet[0] != 0x47)
-                continue;
-
-            int pid = ((packet[1] & 0x1F) << 8) | (packet[2] & 0xFF);
-            boolean payloadUnitStart = (packet[1] & 0x40) != 0;
-            int adaptationFieldControl = (packet[3] >> 4) & 0b11;
-            if (adaptationFieldControl == 0b00 || adaptationFieldControl == 0b10)
-                continue;
-
-            int payloadOffset = 4;
-            if (adaptationFieldControl == 0b11) {
-                payloadOffset += 1 + (packet[4] & 0xFF);
-            }
-
-            if (payloadOffset >= packet.length)
-                continue;
-
-            if (payloadUnitStart) {
-                if (hasPesStartCode(packet, payloadOffset)) {
-                    audioPid = pid;
-                    int pesHeaderLength = packet[payloadOffset + 8] & 0xFF;
-                    payloadOffset += 9 + pesHeaderLength;
-                } else
-                    continue;
-            } else if (pid != audioPid)
-                continue;
-
-            if (payloadOffset < packet.length) {
-                payload.write(packet, payloadOffset, packet.length - payloadOffset);
-            }
-        }
-
-        return normalizeAacOutputSampleRate(detectAacSampleRate(payload.toByteArray()));
-    }
-
-    private static boolean hasPesStartCode(byte[] packet, int offset) {
-        return offset <= packet.length - 9 &&
-                packet[offset] == 0 &&
-                packet[offset + 1] == 0 &&
-                packet[offset + 2] == 1;
-    }
-
-    private static boolean readFully(InputStream inputStream, byte[] buffer) throws IOException {
-        int offset = 0;
-        while (offset < buffer.length) {
-            int read = inputStream.read(buffer, offset, buffer.length - offset);
-            if (read == -1)
-                return false;
-
-            offset += read;
-        }
-
-        return true;
-    }
-
-    private static int detectAacSampleRate(byte[] data) {
-        for (int index = 0; index <= data.length - 7; index++) {
-            int secondByte = data[index + 1] & 0xFF;
-            int thirdByte = data[index + 2] & 0xFF;
-            int sampleRate = sampleRateFromAacHeader(secondByte, thirdByte);
-            if (sampleRate <= 0)
-                continue;
-
-            int frameLength = ((data[index + 3] & 0b11) << 11) |
-                    ((data[index + 4] & 0xFF) << 3) |
-                    ((data[index + 5] >> 5) & 0b111);
-            if (frameLength < 7)
-                continue;
-
-            int nextFrameIndex = index + frameLength;
-            if (nextFrameIndex > data.length - 2 ||
-                    ((data[nextFrameIndex] & 0xFF) == 0xFF && (data[nextFrameIndex + 1] & 0xF0) == 0xF0))
+            int sampleRate = Integer.parseInt(output.lines().findFirst().orElse(""));
+            if (sampleRate > 0)
                 return sampleRate;
+        } catch (IOException | InterruptedException | NumberFormatException exception) {
+            if (exception instanceof InterruptedException)
+                Thread.currentThread().interrupt();
+
+            Radioplayer.LOGGER.warn("Could not detect the sample rate with FFprobe for {}; using {} Hz", url,
+                    DEFAULT_SAMPLE_RATE, exception);
         }
 
-        return -1;
-    }
-
-    private static int sampleRateFromMp3Header(int header) {
-        int version = (header >> 19) & 0b11;
-        int layer = (header >> 17) & 0b11;
-        int bitrateIndex = (header >> 12) & 0b1111;
-        int sampleRateIndex = (header >> 10) & 0b11;
-        if (version == 0b01 || layer == 0 || bitrateIndex == 0 || bitrateIndex == 0b1111 || sampleRateIndex == 0b11)
-            return -1;
-
-        int sampleRate = switch (sampleRateIndex) {
-            case 0 -> 44100;
-            case 1 -> 48000;
-            case 2 -> 32000;
-            default -> -1;
-        };
-
-        return switch (version) {
-            case 0b00 -> sampleRate / 4;
-            case 0b10 -> sampleRate / 2;
-            case 0b11 -> sampleRate;
-            default -> -1;
-        };
-    }
-
-    private static int sampleRateFromAacHeader(int secondByte, int thirdByte) {
-        boolean validSync = (secondByte & 0b11110110) == 0b11110000;
-        if (!validSync)
-            return -1;
-
-        int sampleRateIndex = (thirdByte >> 2) & 0b1111;
-        return switch (sampleRateIndex) {
-            case 0 -> 96000;
-            case 1 -> 88200;
-            case 2 -> 64000;
-            case 3 -> 48000;
-            case 4 -> 44100;
-            case 5 -> 32000;
-            case 6 -> 24000;
-            case 7 -> 22050;
-            case 8 -> 16000;
-            case 9 -> 12000;
-            case 10 -> 11025;
-            case 11 -> 8000;
-            case 12 -> 7350;
-            default -> -1;
-        };
-    }
-
-    private static int normalizeAacOutputSampleRate(int sampleRate) {
-        if (sampleRate > 0 && sampleRate <= 24000)
-            return sampleRate * 2;
-
-        return sampleRate;
+        return DEFAULT_SAMPLE_RATE;
     }
 
     @Override
@@ -331,10 +153,6 @@ public class LavaPlayerAudioStream implements AudioStream {
 
         output.flip();
         return output;
-    }
-
-    private AudioFrame provideFrame(int timeoutSeconds) throws IOException {
-        return provideFrame(timeoutSeconds, TimeUnit.SECONDS);
     }
 
     private AudioFrame provideFrame(long timeout, TimeUnit unit) throws IOException {

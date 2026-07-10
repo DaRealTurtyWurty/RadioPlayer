@@ -11,7 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Radioplayer {
-    public static final Logger logger = LoggerFactory.getLogger(Radioplayer.class);
+    public static final Logger LOGGER = LoggerFactory.getLogger(Radioplayer.class);
 
     public static final String MOD_ID = "radioplayer";
 
