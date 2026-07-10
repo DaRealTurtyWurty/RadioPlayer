@@ -154,10 +154,13 @@ tasks.register('downloadFfprobeNatives') {
 
             def actualSha256 = sha256(outputFile)
             if (!actualSha256.equalsIgnoreCase(nativeBin.sha256)) {
+                outputFile.delete()
                 throw new GradleException("""SHA-256 mismatch for ${nativeBin.id}
 Expected: ${nativeBin.sha256}
 Actual:   ${actualSha256}
 File:     ${outputFile.absolutePath}
+
+The downloaded archive was deleted; re-run the build to download again.
 """)
             }
         }
