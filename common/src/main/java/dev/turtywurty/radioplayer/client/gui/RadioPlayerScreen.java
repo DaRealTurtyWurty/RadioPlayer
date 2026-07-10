@@ -341,6 +341,7 @@ public class RadioPlayerScreen extends Screen {
                 Minecraft.getInstance().execute(() -> {
                     this.validatingUrl = false;
                     if (throwable != null) {
+                        Radioplayer.LOGGER.warn("Radio URL validation failed for {}", station, throwable);
                         showInvalidUrlToast();
                         updateActionButtons();
                         return;

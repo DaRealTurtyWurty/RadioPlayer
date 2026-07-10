@@ -53,8 +53,14 @@ public class LavaPlayerAudioStream implements AudioStream {
 
     @SuppressWarnings("EmptyTryBlock")
     public static void validate(String url) throws IOException {
-        try (LavaPlayerAudioStream _ = new LavaPlayerAudioStream(url)) {
+        Radioplayer.LOGGER.info("Validating radio stream: {}", url);
+        try (LavaPlayerAudioStream ignored = new LavaPlayerAudioStream(url)) {
             // Opening the stream and receiving an initial frame proves Lavaplayer can play it.
+            Radioplayer.LOGGER.info("Radio stream validation succeeded: {}", url);
+        } catch (IOException | RuntimeException exception) {
+            Radioplayer.LOGGER.warn("Radio stream validation failed: {}", url, exception);
+            logFfprobeDiagnostics(url);
+            throw exception;
         }
     }
 
@@ -67,18 +73,39 @@ public class LavaPlayerAudioStream implements AudioStream {
     }
 
     private static AudioTrack loadTrack(AudioPlayerManager playerManager, String url) throws IOException {
-        AudioItem item = playerManager.loadItemSync(url);
-        if (item instanceof AudioTrack track)
+        AudioItem item;
+        try {
+            item = playerManager.loadItemSync(url);
+        } catch (RuntimeException exception) {
+            Radioplayer.LOGGER.warn("Lavaplayer failed while resolving radio stream: {}", url, exception);
+            throw exception;
+        }
+
+        if (item instanceof AudioTrack track) {
+            Radioplayer.LOGGER.info("Lavaplayer resolved radio stream as track: {} ({} ms)", track.getInfo().title,
+                    track.getDuration());
             return track;
+        }
 
         if (item instanceof AudioPlaylist playlist) {
             AudioTrack selectedTrack = playlist.getSelectedTrack();
-            if (selectedTrack != null)
+            if (selectedTrack != null) {
+                Radioplayer.LOGGER.info("Lavaplayer resolved playlist with {} tracks; using selected track: {}",
+                        playlist.getTracks().size(), selectedTrack.getInfo().title);
                 return selectedTrack;
+            }
 
             List<AudioTrack> tracks = playlist.getTracks();
-            if (!tracks.isEmpty())
+            if (!tracks.isEmpty()) {
+                Radioplayer.LOGGER.info("Lavaplayer resolved playlist with {} tracks; using first track: {}", tracks.size(),
+                        tracks.getFirst().getInfo().title);
                 return tracks.getFirst();
+            }
+
+            Radioplayer.LOGGER.warn("Lavaplayer resolved an empty playlist for radio stream: {}", url);
+        } else {
+            Radioplayer.LOGGER.warn("Lavaplayer did not resolve a radio track for {} (result type: {})", url,
+                    item == null ? "none" : item.getClass().getName());
         }
 
         throw new IOException("No playable audio stream found for URL: " + url);
@@ -113,8 +140,10 @@ public class LavaPlayerAudioStream implements AudioStream {
                 throw new IOException("FFprobe exited with code " + process.exitValue() + ": " + output);
 
             int sampleRate = Integer.parseInt(output.lines().findFirst().orElse(""));
-            if (sampleRate > 0)
+            if (sampleRate > 0) {
+                Radioplayer.LOGGER.info("FFprobe detected {} Hz audio for {}", sampleRate, url);
                 return sampleRate;
+            }
         } catch (IOException | InterruptedException | NumberFormatException exception) {
             if (exception instanceof InterruptedException)
                 Thread.currentThread().interrupt();
@@ -124,6 +153,41 @@ public class LavaPlayerAudioStream implements AudioStream {
         }
 
         return DEFAULT_SAMPLE_RATE;
+    }
+
+    private static void logFfprobeDiagnostics(String url) {
+        Path ffprobe = FfprobeNativeExtractor.getExecutablePath();
+        if (ffprobe == null || !Files.isRegularFile(ffprobe)) {
+            Radioplayer.LOGGER.warn("Cannot collect FFprobe diagnostics; executable is unavailable");
+            return;
+        }
+
+        try {
+            Process process = new ProcessBuilder(
+                    ffprobe.toString(),
+                    "-v", "error",
+                    "-rw_timeout", "5000000",
+                    "-show_entries", "format=format_name,format_long_name:stream=codec_type,codec_name,profile,sample_rate",
+                    "-of", "default=noprint_wrappers=1",
+                    url)
+                    .redirectErrorStream(true)
+                    .start();
+
+            if (!process.waitFor(FFPROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly();
+                Radioplayer.LOGGER.warn("FFprobe diagnostic timed out for {}", url);
+                return;
+            }
+
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            Radioplayer.LOGGER.warn("FFprobe diagnostic for {} (exit {}): {}", url, process.exitValue(),
+                    output.isEmpty() ? "no metadata returned" : output);
+        } catch (IOException | InterruptedException exception) {
+            if (exception instanceof InterruptedException)
+                Thread.currentThread().interrupt();
+
+            Radioplayer.LOGGER.warn("Could not collect FFprobe diagnostics for {}", url, exception);
+        }
     }
 
     @Override
