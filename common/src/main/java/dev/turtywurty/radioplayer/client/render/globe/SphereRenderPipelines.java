@@ -13,7 +13,7 @@ public final class SphereRenderPipelines {
             .withLocation(Radioplayer.id("pipeline/earth_normal_mapped"))
             .withVertexShader(Radioplayer.id("core/sphere_earth"))
             .withFragmentShader(Radioplayer.id("core/sphere_earth"))
-            .withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1)
+            .withBindGroupLayout(BindGroupLayouts.SAMPLER0_SAMPLER1_SAMPLER2)
             .withVertexBinding(0, DefaultVertexFormat.ENTITY)
             .withPrimitiveTopology(PrimitiveTopology.QUADS)
             .withDepthStencilState(DepthStencilState.DEFAULT)

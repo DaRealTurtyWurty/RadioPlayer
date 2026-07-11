@@ -5,6 +5,7 @@
 
 uniform sampler2D Sampler0;
 uniform sampler2D Sampler1;
+uniform sampler2D Sampler2;
 
 in float sphericalVertexDistance;
 in float cylindricalVertexDistance;
@@ -14,6 +15,9 @@ in vec3 sphereNormal;
 in vec3 spherePosition;
 
 out vec4 fragColor;
+
+const float SPECULAR_POWER = 64.0;
+const float SPECULAR_STRENGTH = 0.55;
 
 mat3 cotangentFrame(vec3 normal, vec3 position, vec2 uv) {
     vec3 positionDx = dFdx(position);
@@ -49,6 +53,13 @@ void main() {
     float rim = pow(1.0 - max(dot(normal, vec3(0.0, 0.0, 1.0)), 0.0), 2.0) * 0.15;
     float light = 0.32 + diffuse * 0.78 + rim;
 
-    vec4 color = vec4(baseColor.rgb * light, baseColor.a);
+    float specularMask = texture(Sampler2, texCoord0).r;
+    vec3 viewDirection = vec3(0.0, 0.0, 1.0);
+    vec3 halfwayDirection = normalize(lightDirection + viewDirection);
+    float specular = pow(max(dot(bumpedNormal, halfwayDirection), 0.0), SPECULAR_POWER);
+    specular *= specularMask * SPECULAR_STRENGTH * step(1.0e-4, diffuse);
+
+    vec3 specularColor = vec3(0.85, 0.92, 1.0);
+    vec4 color = vec4(baseColor.rgb * light + specularColor * specular, baseColor.a);
     fragColor = apply_fog(color, sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd, FogColor);
 }
