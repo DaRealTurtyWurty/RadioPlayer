@@ -39,9 +39,11 @@ public class GlobeWidget extends AbstractWidget {
     private int sphereX;
     private int sphereY;
     private int sphereSize;
+    private List<GlobePoint> renderablePoints = List.of();
     private float yaw;
     private float pitch;
     private float zoom;
+    private float pointSizeMultiplier = 1.0F;
     private boolean draggingSphere;
     private boolean userControlled;
     private @Nullable GlobePoint hoveredPoint;
@@ -76,6 +78,7 @@ public class GlobeWidget extends AbstractWidget {
         this.sphereY = getY() + (getHeight() - this.sphereSize) / 2;
 
         Quaternionf renderRotation = currentRenderRotation();
+        this.renderablePoints = visiblePoints(renderRotation);
         var renderState = getSpherePictureRenderState(renderRotation);
         ((GuiGraphicsExtractorAccessor) graphics)
                 .radioplayer$getGuiRenderState()
@@ -84,8 +87,8 @@ public class GlobeWidget extends AbstractWidget {
         this.hoveredPoint = isMouseOver(mouseX, mouseY)
                 ? findPointAt(mouseX, mouseY, renderRotation)
                 : null;
-        if (this.hoveredPoint != null && this.hoveredPoint.tooltip() != null)
-            graphics.setTooltipForNextFrame(Minecraft.getInstance().font, this.hoveredPoint.tooltip(), mouseX, mouseY);
+        if (this.hoveredPoint != null && this.hoveredPoint.getTooltip() != null)
+            graphics.setTooltipForNextFrame(Minecraft.getInstance().font, this.hoveredPoint.getTooltip(), mouseX, mouseY);
     }
 
     private @NonNull SpherePictureRenderState getSpherePictureRenderState(Quaternionf renderRotation) {
@@ -93,14 +96,17 @@ public class GlobeWidget extends AbstractWidget {
                 ? new ScreenRectangle(getX(), getY(), getWidth(), getHeight())
                 : null;
         return new SpherePictureRenderState(
-                this.sphereX,
-                this.sphereY,
+                getX(),
+                getY(),
+                getWidth(),
+                getHeight(),
                 this.sphereSize,
+                this.pointSizeMultiplier,
                 renderRotation.x,
                 renderRotation.y,
                 renderRotation.z,
                 renderRotation.w,
-                this.points,
+                this.renderablePoints,
                 scissorArea
         );
     }
@@ -190,6 +196,17 @@ public class GlobeWidget extends AbstractWidget {
         return this.zoom;
     }
 
+    public float getPointSizeMultiplier() {
+        return this.pointSizeMultiplier;
+    }
+
+    public void setPointSizeMultiplier(float pointSizeMultiplier) {
+        if (!Float.isFinite(pointSizeMultiplier) || pointSizeMultiplier <= 0.0F)
+            throw new IllegalArgumentException("Point size multiplier must be finite and greater than zero");
+
+        this.pointSizeMultiplier = pointSizeMultiplier;
+    }
+
     public void setZoom(float zoom) {
         if (!Float.isFinite(zoom))
             throw new IllegalArgumentException("Zoom must be finite");
@@ -238,18 +255,19 @@ public class GlobeWidget extends AbstractWidget {
         GlobePoint closestPoint = null;
         float closestDepth = 0.0F;
         float globeRadius = sphereRadius();
-        for (GlobePoint point : this.points) {
+        for (GlobePoint point : this.renderablePoints) {
             Vector3f position = pointPosition(point);
             rotation.transform(position);
             if (position.z <= 0.0F)
                 continue;
 
-            float distanceFromCenter = globeRadius + point.size() * 0.04F;
+            float pointSize = point.getSize() * this.pointSizeMultiplier;
+            float distanceFromCenter = globeRadius + pointSize * 0.04F;
             double pointX = sphereCenterX() - position.x * distanceFromCenter;
             double pointY = sphereCenterY() + position.y * distanceFromCenter;
             double dx = mouseX - pointX;
             double dy = mouseY - pointY;
-            double hitRadius = Math.max(4.0D, point.size() * 0.5D);
+            double hitRadius = Math.max(4.0D, pointSize * 0.5D);
             if (dx * dx + dy * dy <= hitRadius * hitRadius && position.z > closestDepth) {
                 closestPoint = point;
                 closestDepth = position.z;
@@ -259,13 +277,43 @@ public class GlobeWidget extends AbstractWidget {
         return closestPoint;
     }
 
+    private List<GlobePoint> visiblePoints(Quaternionf rotation) {
+        List<GlobePoint> visiblePoints = new ArrayList<>();
+        float globeRadius = sphereRadius();
+        double centerX = sphereCenterX();
+        double centerY = sphereCenterY();
+        double left = getX();
+        double right = getX() + getWidth();
+        double top = getY();
+        double bottom = getY() + getHeight();
+
+        for (GlobePoint point : this.points) {
+            Vector3f position = pointPosition(point);
+            rotation.transform(position);
+            if (position.z <= 0.0F)
+                continue;
+
+            float pointSize = point.getSize() * this.pointSizeMultiplier;
+            float distanceFromCenter = globeRadius + pointSize * 0.04F;
+            double pointX = centerX - position.x * distanceFromCenter;
+            double pointY = centerY + position.y * distanceFromCenter;
+            double pointRadius = pointSize * 0.5D;
+            if (pointX + pointRadius >= left && pointX - pointRadius <= right &&
+                    pointY + pointRadius >= top && pointY - pointRadius <= bottom) {
+                visiblePoints.add(point);
+            }
+        }
+
+        return visiblePoints;
+    }
+
     private static Vector3f pointPosition(GlobePoint point) {
-        double latitude = Math.toRadians(point.latitude());
-        double longitude = Math.toRadians(point.longitude() + 180.0D);
+        double latitude = Math.toRadians(point.getLatitude());
+        double longitude = Math.toRadians(point.getLongitude() + 180.0D);
         float cosLatitude = (float) Math.cos(latitude);
         return new Vector3f(
                 cosLatitude * (float) Math.cos(longitude),
-                (float) Math.sin(latitude),
+                -(float) Math.sin(latitude),
                 cosLatitude * (float) Math.sin(longitude)
         );
     }

@@ -27,6 +27,7 @@ kumaCommon = { module = "net.blay09.mods:kuma-api-common", version.ref = "kuma" 
 kumaNeoForge = { module = "net.blay09.mods:kuma-api-neoforge", version.ref = "kuma" }
 kumaFabric = { module = "net.blay09.mods:kuma-api-fabric", version.ref = "kuma" }
 lavaplayer = { module = "dev.arbjerg:lavaplayer", version.ref = "lavaplayer" }
+radiobrowser = { module = "de.sfuhrm:radiobrowser4j", version = "3.3.1" }
 
 neoForm = { module = "net.neoforged:neoform", version.ref = "neoForm" }
 neoForge = { module = "net.neoforged:neoforge", version.ref = "neoForge" }

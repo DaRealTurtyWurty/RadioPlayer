@@ -30,6 +30,14 @@ public class SpherePictureRenderer extends PictureInPictureRenderer<SpherePictur
             @NonNull SubmitNodeCollector submitNodeCollector
     ) {
         poseStack.pushPose();
+        float viewportSize = Math.min(renderState.x1() - renderState.x0(), renderState.y1() - renderState.y0());
+        if (viewportSize <= 0.0F) {
+            poseStack.popPose();
+            return;
+        }
+
+        float zoomScale = renderState.sphereSize() / viewportSize;
+        poseStack.scale(zoomScale, zoomScale, 1.0F);
         poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
         poseStack.mulPose(new Quaternionf(
                 renderState.rotationX(),
@@ -38,10 +46,10 @@ public class SpherePictureRenderer extends PictureInPictureRenderer<SpherePictur
                 renderState.rotationW()
         ));
 
-        float radius = (renderState.x1() - renderState.x0()) * 0.45F;
+        float radius = viewportSize * 0.45F;
         renderUvSphere(poseStack, submitNodeCollector, radius, 48, 32, 0xFFFFFFFF, LightCoordsUtil.FULL_BRIGHT);
         for (GlobePoint point : renderState.points()) {
-            renderPoint(poseStack, submitNodeCollector, radius, point);
+            renderPoint(poseStack, submitNodeCollector, radius, point, renderState.pointSizeMultiplier());
         }
 
         poseStack.popPose();
@@ -98,18 +106,19 @@ public class SpherePictureRenderer extends PictureInPictureRenderer<SpherePictur
             PoseStack poseStack,
             SubmitNodeCollector submitNodeCollector,
             float globeRadius,
-            GlobePoint point
+            GlobePoint point,
+            float pointSizeMultiplier
     ) {
-        double latitude = Math.toRadians(point.latitude());
-        double longitude = Math.toRadians(point.longitude() + 180.0D);
+        double latitude = Math.toRadians(point.getLatitude());
+        double longitude = Math.toRadians(point.getLongitude() + 180.0D);
         float cosLatitude = (float) Math.cos(latitude);
         float cosLongitude = (float) Math.cos(longitude);
         float sinLongitude = (float) Math.sin(longitude);
         float nx = cosLatitude * cosLongitude;
-        float ny = (float) Math.sin(latitude);
+        float ny = -(float) Math.sin(latitude);
         float nz = cosLatitude * sinLongitude;
 
-        float markerRadius = point.size() * 0.5F;
+        float markerRadius = point.getSize() * pointSizeMultiplier * 0.5F;
         float distance = globeRadius + markerRadius * 0.08F;
         float centerX = nx * distance;
         float centerY = ny * distance;
@@ -122,7 +131,7 @@ public class SpherePictureRenderer extends PictureInPictureRenderer<SpherePictur
         float bitangentZ = ny * sinLongitude;
 
         submitNodeCollector.submitCustomGeometry(poseStack, RenderTypes.debugTriangleFan(), (pose, consumer) -> {
-            consumer.addVertex(pose.pose(), centerX, centerY, centerZ).setColor(point.color());
+            consumer.addVertex(pose.pose(), centerX, centerY, centerZ).setColor(point.getColor());
             for (int segment = 0; segment <= POINT_SEGMENTS; segment++) {
                 float angle = Mth.TWO_PI * segment / POINT_SEGMENTS;
                 float tangentScale = Mth.cos(angle) * markerRadius;
@@ -133,7 +142,7 @@ public class SpherePictureRenderer extends PictureInPictureRenderer<SpherePictur
                                 centerY + bitangentY * bitangentScale,
                                 centerZ + tangentZ * tangentScale + bitangentZ * bitangentScale
                         )
-                        .setColor(point.color());
+                        .setColor(point.getColor());
             }
         });
     }
