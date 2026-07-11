@@ -28,6 +28,11 @@ public final class FfprobeNativeExtractor {
         }
 
         Path target = getExecutablePath(nativeBinary);
+        if (target == null) {
+            Radioplayer.LOGGER.warn("Cannot extract FFprobe before the Minecraft client is initialized");
+            return;
+        }
+
         Path ffmpegDirectory = target.getParent();
         String resourcePath = RESOURCE_ROOT + nativeBinary.resourceDirectory() + "/" + nativeBinary.fileName();
 
@@ -69,7 +74,11 @@ public final class FfprobeNativeExtractor {
     }
 
     private static Path getExecutablePath(NativeBinary nativeBinary) {
-        return Minecraft.getInstance().gameDirectory.toPath()
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null)
+            return null;
+
+        return minecraft.gameDirectory.toPath()
                 .resolve(Radioplayer.MOD_ID)
                 .resolve("ffmpeg")
                 .resolve(nativeBinary.fileName());

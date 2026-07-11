@@ -5,8 +5,16 @@ import net.blay09.mods.balm.client.BalmClientRegistrars;
 import net.blay09.mods.balm.client.platform.event.callback.ClientTickCallback;
 
 public class RadioplayerClient {
+    private static boolean extractedFfprobe;
+
     public static void initialize(BalmClientRegistrars registrars) {
-        FfprobeNativeExtractor.extract();
-        ClientTickCallback.AFTER.register(RadioClientAudioManager::tick);
+        ClientTickCallback.AFTER.register(minecraft -> {
+            if (!extractedFfprobe) {
+                FfprobeNativeExtractor.extract();
+                extractedFfprobe = true;
+            }
+
+            RadioClientAudioManager.tick(minecraft);
+        });
     }
 }

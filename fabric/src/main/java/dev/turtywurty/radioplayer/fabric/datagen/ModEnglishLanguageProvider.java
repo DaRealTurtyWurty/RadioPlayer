@@ -37,6 +37,7 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         translationBuilder.add("radioplayer.configuration.ffmpegExecutablePath", "FFmpeg Executable Path");
         translationBuilder.add("radioplayer.configuration.ffmpegExecutablePath.tooltip",
                 "Optional absolute path to FFmpeg. Used only when Lavaplayer cannot play a stream directly.");
+        translationBuilder.add(ModBlocks.globe.asBlock(), "Globe");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {

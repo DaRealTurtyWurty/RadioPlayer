@@ -1,6 +1,7 @@
 package dev.turtywurty.radioplayer.block;
 
 import dev.turtywurty.radioplayer.api.client.RadioplayerClientAPI;
+import dev.turtywurty.radioplayer.block.entity.GlobeBlockEntity;
 import dev.turtywurty.radioplayer.block.entity.RadioPlayerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,7 +29,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.Map;
 
-public class RadioPlayerBlock extends Block implements EntityBlock {
+public class GlobeBlock extends Block implements EntityBlock {
     private static final VoxelShape SHAPE = makeShape();
     private static final Map<Direction, VoxelShape> SHAPES = Map.of(
             Direction.NORTH, SHAPE,
@@ -39,19 +40,19 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
 
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 
-    public RadioPlayerBlock(Properties properties) {
+    public GlobeBlock(Properties properties) {
         super(properties);
     }
 
     @Override
     public @Nullable BlockEntity newBlockEntity(@NonNull BlockPos blockPos, @NonNull BlockState blockState) {
-        return new RadioPlayerBlockEntity(blockPos, blockState);
+        return new GlobeBlockEntity(blockPos, blockState);
     }
 
     @Override
     protected @NonNull InteractionResult useWithoutItem(@NonNull BlockState state, Level level, @NonNull BlockPos pos, @NonNull Player player, @NonNull BlockHitResult hitResult) {
-        if (level.isClientSide() && level.getBlockEntity(pos) instanceof RadioPlayerBlockEntity radioPlayer) {
-            RadioplayerClientAPI.openRadioPlayerScreen(pos, radioPlayer.getUrl(), radioPlayer.isPlaying(), radioPlayer.getSavedStations());
+        if (level.isClientSide() && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe) {
+            RadioplayerClientAPI.openGlobeScreen(pos);
         }
 
         return InteractionResult.SUCCESS;
@@ -83,15 +84,11 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
         builder.add(FACING);
     }
 
-    private static VoxelShape makeShape() {
+    private static VoxelShape makeShape(){
         VoxelShape shape = Shapes.empty();
-        shape = Shapes.join(shape, Shapes.box(0.125, 0, 0.3125, 0.875, 0.375, 0.6875), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.125, 0.3125, 0.6875, 0.25, 0.375, 0.75), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.125, 0.375, 0.6875, 0.1875, 0.75, 0.75), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.25, 0.375, 0.5, 0.75, 0.4375, 0.5625), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.25, 0.4375, 0.5, 0.3125, 0.5625, 0.5625), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.6875, 0.4375, 0.5, 0.75, 0.5625, 0.5625), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.3125, 0.5625, 0.5, 0.6875, 0.625, 0.5625), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.1875, 0, 0.1875, 0.8125, 0.125, 0.8125), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.25, 0.125, 0.25, 0.75, 0.1875, 0.75), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.1875, 0.1875, 0.1875, 0.8125, 1, 0.9375), BooleanOp.OR);
 
         return shape;
     }

@@ -1,4 +1,5 @@
 {
+  "block.radioplayer.globe": "Globe",
   "block.radioplayer.radio_player": "Radio Player",
   "radioplayer.configuration": "General",
   "radioplayer.configuration.ffmpegExecutablePath": "FFmpeg Executable Path",
