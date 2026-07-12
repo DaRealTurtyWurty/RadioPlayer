@@ -286,7 +286,7 @@ public final class GlobePointCache {
     }
 
     private static GlobePoint createPoint(Station station) {
-        if (station.getGeoLatitude() == null || station.getGeoLongitude() == null)
+        if (!hasValidCoordinates(station))
             return null;
 
         return new RadioStationPoint(
@@ -298,6 +298,19 @@ public final class GlobePointCache {
                 station.getName(),
                 station.getUrl(),
                 station.getBitrate());
+    }
+
+    private static boolean hasValidCoordinates(Station station) {
+        Double latitude = station.getGeoLatitude();
+        Double longitude = station.getGeoLongitude();
+        return latitude != null &&
+                longitude != null &&
+                Double.isFinite(latitude) &&
+                Double.isFinite(longitude) &&
+                latitude >= -90.0D &&
+                latitude <= 90.0D &&
+                longitude >= -180.0D &&
+                longitude <= 180.0D;
     }
 
     private static int stationColor(Station station) {
@@ -372,8 +385,7 @@ public final class GlobePointCache {
         }
 
         private boolean contains(Station station) {
-            return station.getGeoLatitude() != null &&
-                    station.getGeoLongitude() != null &&
+            return hasValidCoordinates(station) &&
                     contains(station.getGeoLatitude(), station.getGeoLongitude());
         }
 

@@ -2,7 +2,6 @@ package dev.turtywurty.radioplayer.block;
 
 import dev.turtywurty.radioplayer.api.client.RadioplayerClientAPI;
 import dev.turtywurty.radioplayer.block.entity.GlobeBlockEntity;
-import dev.turtywurty.radioplayer.block.entity.RadioPlayerBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionResult;
@@ -51,8 +50,8 @@ public class GlobeBlock extends Block implements EntityBlock {
 
     @Override
     protected @NonNull InteractionResult useWithoutItem(@NonNull BlockState state, Level level, @NonNull BlockPos pos, @NonNull Player player, @NonNull BlockHitResult hitResult) {
-        if (level.isClientSide() && level.getBlockEntity(pos) instanceof GlobeBlockEntity globe) {
-            RadioplayerClientAPI.openGlobeScreen(pos);
+        if (level.isClientSide() && level.getBlockEntity(pos) instanceof GlobeBlockEntity) {
+            RadioplayerClientAPI.openGlobeScreen();
         }
 
         return InteractionResult.SUCCESS;

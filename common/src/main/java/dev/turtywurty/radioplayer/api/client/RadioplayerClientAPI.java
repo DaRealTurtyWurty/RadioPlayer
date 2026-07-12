@@ -2,7 +2,6 @@ package dev.turtywurty.radioplayer.api.client;
 
 import dev.turtywurty.radioplayer.SavedRadioStation;
 import net.minecraft.core.BlockPos;
-import org.jspecify.annotations.NonNull;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
@@ -22,7 +21,7 @@ public class RadioplayerClientAPI {
         __internalMethods.openRadioPlayerScreen(pos, url, playing, savedStations);
     }
 
-    public static void openGlobeScreen(@NonNull BlockPos pos) {
-        __internalMethods.openGlobeScreen(pos);
+    public static void openGlobeScreen() {
+        __internalMethods.openGlobeScreen();
     }
 }

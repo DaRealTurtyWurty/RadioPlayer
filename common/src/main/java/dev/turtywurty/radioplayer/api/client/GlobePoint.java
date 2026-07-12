@@ -18,11 +18,12 @@ public class GlobePoint {
         if (!Double.isFinite(latitude) || latitude < -90.0D || latitude > 90.0D)
             throw new IllegalArgumentException("Latitude must be between -90 and 90 degrees");
 
-        if (!Double.isFinite(longitude))
-            throw new IllegalArgumentException("Longitude must be finite");
+        if (!Double.isFinite(longitude) || longitude < -180.0D || longitude > 180.0D)
+            throw new IllegalArgumentException("Longitude must be between -180 and 180 degrees");
 
         if (!Float.isFinite(size) || size <= 0.0F)
             throw new IllegalArgumentException("Size must be finite and greater than zero");
+
         this.latitude = latitude;
         this.longitude = longitude;
         this.color = color;

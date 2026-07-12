@@ -15,7 +15,9 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.NonNull;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 public class StationListWidget extends AbstractWidget {
@@ -36,6 +38,7 @@ public class StationListWidget extends AbstractWidget {
 
     private final EditBox searchField;
     private final Consumer<GlobePoint> stationClickHandler;
+    private final List<Button> stationRowButtons = new ArrayList<>();
     private List<GlobePoint> stations = List.of();
     private Consumer<String> searchResponder = _ -> {
     };
@@ -105,17 +108,25 @@ public class StationListWidget extends AbstractWidget {
     }
 
     private void extractStationRows(GuiGraphicsExtractor graphics, List<GlobePoint> filteredStations, int mouseX, int mouseY, float partialTick) {
-        int rowWidth = getRowWidth();
         int rowX = getX() + PADDING;
         int rowY = listTop();
+        ensureStationRowButtons(visibleRowSlots());
         int lastVisibleIndex = Math.min(filteredStations.size(), this.firstVisibleStationIndex + visibleRowSlots());
         for (int index = this.firstVisibleStationIndex; index < lastVisibleIndex; index++) {
             GlobePoint point = filteredStations.get(index);
             int visibleIndex = index - this.firstVisibleStationIndex;
-            Button button = Button.builder(pointMessage(point), _ -> this.stationClickHandler.accept(point))
-                    .bounds(rowX, rowY + visibleIndex * (ROW_HEIGHT + ROW_GAP), rowWidth, ROW_HEIGHT)
-                    .build();
+            Button button = this.stationRowButtons.get(visibleIndex);
+            button.setMessage(pointMessage(point));
+            button.setX(rowX);
+            button.setY(rowY + visibleIndex * (ROW_HEIGHT + ROW_GAP));
             button.extractRenderState(graphics, mouseX, mouseY, partialTick);
+        }
+    }
+
+    private void ensureStationRowButtons(int rowCount) {
+        while (this.stationRowButtons.size() < rowCount) {
+            this.stationRowButtons.add(Button.builder(Component.empty(), _ -> {
+            }).bounds(0, 0, getRowWidth(), ROW_HEIGHT).build());
         }
     }
 
@@ -194,12 +205,12 @@ public class StationListWidget extends AbstractWidget {
     }
 
     private List<GlobePoint> filteredStations() {
-        String query = this.searchField.getValue().trim().toLowerCase();
+        String query = this.searchField.getValue().trim().toLowerCase(Locale.ROOT);
         if (query.isEmpty())
             return this.stations;
 
         return this.stations.stream()
-                .filter(point -> stationLabel(point).toLowerCase().contains(query))
+                .filter(point -> stationLabel(point).toLowerCase(Locale.ROOT).contains(query))
                 .toList();
     }
 

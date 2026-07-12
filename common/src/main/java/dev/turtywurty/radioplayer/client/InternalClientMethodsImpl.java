@@ -16,7 +16,7 @@ public class InternalClientMethodsImpl implements InternalClientMethods {
     }
 
     @Override
-    public void openGlobeScreen(BlockPos pos) {
+    public void openGlobeScreen() {
         Minecraft.getInstance().gui.setScreen(new GlobeScreen());
     }
 }

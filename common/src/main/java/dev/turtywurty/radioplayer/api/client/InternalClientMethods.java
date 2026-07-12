@@ -8,5 +8,5 @@ import java.util.List;
 public interface InternalClientMethods {
     void openRadioPlayerScreen(BlockPos pos, String url, boolean playing, List<SavedRadioStation> savedStations);
 
-    void openGlobeScreen(BlockPos pos);
+    void openGlobeScreen();
 }
