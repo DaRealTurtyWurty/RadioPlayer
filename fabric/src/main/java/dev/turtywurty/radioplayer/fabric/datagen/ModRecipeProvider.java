@@ -11,6 +11,7 @@ import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import org.jspecify.annotations.NonNull;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -20,11 +21,22 @@ public class ModRecipeProvider extends FabricRecipeProvider {
     }
 
     @Override
-    protected RecipeProvider createRecipeProvider(HolderLookup.Provider registryLookup, RecipeOutput exporter) {
+    protected @NonNull RecipeProvider createRecipeProvider(HolderLookup.@NonNull Provider registryLookup, @NonNull RecipeOutput exporter) {
         return new RecipeProvider(registryLookup, exporter) {
             @Override
             public void buildRecipes() {
                 shaped(RecipeCategory.REDSTONE, ModBlocks.radioPlayer.asBlock())
+                        .define('I', Items.IRON_INGOT)
+                        .define('N', Blocks.NOTE_BLOCK)
+                        .define('P', ItemTags.PLANKS)
+                        .define('R', Items.REDSTONE)
+                        .pattern("IPI")
+                        .pattern("RNR")
+                        .pattern("IPI")
+                        .unlockedBy("has_note_block", has(Blocks.NOTE_BLOCK))
+                        .save(output);
+
+                shaped(RecipeCategory.REDSTONE, ModBlocks.globe.asBlock())
                         .define('I', Items.IRON_INGOT)
                         .define('N', Blocks.NOTE_BLOCK)
                         .define('P', ItemTags.PLANKS)
@@ -39,7 +51,7 @@ public class ModRecipeProvider extends FabricRecipeProvider {
     }
 
     @Override
-    public String getName() {
+    public @NonNull String getName() {
         return Radioplayer.MOD_ID;
     }
 }

@@ -8,6 +8,9 @@
   ],
   "client": [
     "ClientLevelMixin",
+    "GuiGraphicsExtractorAccessor",
+    "RenderPipelinesAccessor",
+    "RenderTypeAccessor",
     "SoundBufferLibraryMixin"
   ],
   "injectors": {

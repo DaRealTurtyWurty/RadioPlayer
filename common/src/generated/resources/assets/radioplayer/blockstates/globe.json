@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "radioplayer:block/globe",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "radioplayer:block/globe"
+    },
+    "facing=south": {
+      "model": "radioplayer:block/globe",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "radioplayer:block/globe",
+      "y": 270
+    }
+  }
+}

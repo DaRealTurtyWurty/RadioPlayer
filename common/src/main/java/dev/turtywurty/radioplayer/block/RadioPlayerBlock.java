@@ -83,7 +83,7 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
         builder.add(FACING);
     }
 
-    public static VoxelShape makeShape() {
+    private static VoxelShape makeShape() {
         VoxelShape shape = Shapes.empty();
         shape = Shapes.join(shape, Shapes.box(0.125, 0, 0.3125, 0.875, 0.375, 0.6875), BooleanOp.OR);
         shape = Shapes.join(shape, Shapes.box(0.125, 0.3125, 0.6875, 0.25, 0.375, 0.75), BooleanOp.OR);

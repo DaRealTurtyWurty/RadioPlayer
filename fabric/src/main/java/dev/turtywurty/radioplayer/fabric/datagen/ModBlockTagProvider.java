@@ -17,6 +17,7 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
     @Override
     protected void addTags(HolderLookup.@NonNull Provider arg) {
         builder(BlockTags.MINEABLE_WITH_AXE)
-                .add(ModBlocks.radioPlayer.asResourceKey());
+                .add(ModBlocks.radioPlayer.asResourceKey())
+                .add(ModBlocks.globe.asResourceKey());
     }
 }

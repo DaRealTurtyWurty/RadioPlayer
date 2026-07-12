@@ -1,7 +1,9 @@
 package dev.turtywurty.radioplayer.fabric.datagen;
 
 import dev.turtywurty.radioplayer.block.ModBlocks;
+import dev.turtywurty.radioplayer.client.gui.GlobeScreen;
 import dev.turtywurty.radioplayer.client.gui.RadioPlayerScreen;
+import dev.turtywurty.radioplayer.client.gui.widget.StationListWidget;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider;
 import net.minecraft.core.HolderLookup;
@@ -37,6 +39,11 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         translationBuilder.add("radioplayer.configuration.ffmpegExecutablePath", "FFmpeg Executable Path");
         translationBuilder.add("radioplayer.configuration.ffmpegExecutablePath.tooltip",
                 "Optional absolute path to FFmpeg. Used only when Lavaplayer cannot play a stream directly.");
+        translationBuilder.add(ModBlocks.globe.asBlock(), "Globe");
+        add(translationBuilder, GlobeScreen.TITLE, "Globe");
+        add(translationBuilder, StationListWidget.STATIONS_LABEL, "Stations");
+        add(translationBuilder, StationListWidget.EMPTY_STATIONS_LABEL, "No stations");
+        add(translationBuilder, StationListWidget.SEARCH_LABEL, "Search");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {
