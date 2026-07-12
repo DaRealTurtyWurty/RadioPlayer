@@ -1,6 +1,7 @@
 package dev.turtywurty.radioplayer.sound;
 
 import dev.turtywurty.radioplayer.block.ModBlocks;
+import dev.turtywurty.radioplayer.block.SpeakerBlockEntity;
 import dev.turtywurty.radioplayer.block.entity.RadioPlayerBlockEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 public final class RadioClientAudioManager {
     private static final Set<BlockPos> KNOWN_RADIOS = new HashSet<>();
+    private static final Set<BlockPos> KNOWN_SPEAKERS = new HashSet<>();
     private static final Map<BlockPos, RadioSoundInstance> ACTIVE_SOUNDS = new HashMap<>();
     private static final Map<BlockPos, RadioStaticSoundInstance> ACTIVE_STATIC = new HashMap<>();
 
@@ -22,6 +24,10 @@ public final class RadioClientAudioManager {
 
     public static void registerRadio(BlockPos pos) {
         KNOWN_RADIOS.add(pos.immutable());
+    }
+
+    public static void registerSpeaker(BlockPos pos) {
+        KNOWN_SPEAKERS.add(pos.immutable());
     }
 
     public static void tick(Minecraft minecraft) {
@@ -46,6 +52,37 @@ public final class RadioClientAudioManager {
                 stop(pos, minecraft);
                 return false;
             }
+
+            if (active == null || !active.getUrl().equals(url) ||
+                    (!minecraft.getSoundManager().isActive(active) && active.isPastStartupGracePeriod())) {
+                stop(pos, minecraft);
+
+                RadioSoundInstance sound = new RadioSoundInstance(pos, url);
+                ACTIVE_SOUNDS.put(pos, sound);
+                minecraft.getSoundManager().play(sound);
+            }
+
+            updateStatic(pos, minecraft);
+            return false;
+        });
+
+        KNOWN_SPEAKERS.removeIf(pos -> {
+            BlockEntity blockEntity = minecraft.level.getBlockEntity(pos);
+
+            if (!(blockEntity instanceof SpeakerBlockEntity speaker)) {
+                stop(pos, minecraft);
+                BlockState blockState = minecraft.level.getBlockState(pos);
+                return !blockState.is(ModBlocks.speaker.asBlock());
+            }
+
+            RadioPlayerBlockEntity sourceRadio = speaker.findSourceRadio();
+            if (sourceRadio == null) {
+                stop(pos, minecraft);
+                return false;
+            }
+
+            String url = sourceRadio.getUrl();
+            RadioSoundInstance active = ACTIVE_SOUNDS.get(pos);
 
             if (active == null || !active.getUrl().equals(url) ||
                     (!minecraft.getSoundManager().isActive(active) && active.isPastStartupGracePeriod())) {
@@ -113,5 +150,6 @@ public final class RadioClientAudioManager {
         }
 
         KNOWN_RADIOS.clear();
+        KNOWN_SPEAKERS.clear();
     }
 }

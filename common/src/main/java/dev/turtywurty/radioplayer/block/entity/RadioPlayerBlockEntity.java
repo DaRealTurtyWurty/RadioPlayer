@@ -59,7 +59,7 @@ public class RadioPlayerBlockEntity extends BlockEntity {
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+    public @NonNull CompoundTag getUpdateTag(HolderLookup.@NonNull Provider registries) {
         return saveCustomOnly(registries);
     }
 
@@ -123,23 +123,20 @@ public class RadioPlayerBlockEntity extends BlockEntity {
 
     private static List<SavedRadioStation> sanitizeSavedStations(List<SavedRadioStation> stations) {
         List<SavedRadioStation> sanitizedStations = new ArrayList<>();
-        if (stations == null) {
+        if (stations == null)
             return List.of();
-        }
 
         for (SavedRadioStation station : stations) {
-            if (station == null) {
+            if (station == null)
                 continue;
-            }
 
             SavedRadioStation sanitizedStation = SavedRadioStation.of(station.nickname(), station.url());
             if (!sanitizedStation.url().isBlank() && sanitizedStations.stream().noneMatch(savedStation -> savedStation.url().equals(sanitizedStation.url()))) {
                 sanitizedStations.add(sanitizedStation);
             }
 
-            if (sanitizedStations.size() >= MAX_SAVED_STATIONS) {
+            if (sanitizedStations.size() >= MAX_SAVED_STATIONS)
                 break;
-            }
         }
 
         return List.copyOf(sanitizedStations);

@@ -44,6 +44,15 @@ public class ModModelProvider extends FabricModelProvider {
                         .select(Direction.EAST, Y_ROT_90)
                         .select(Direction.SOUTH, Y_ROT_180)
                         .select(Direction.WEST, Y_ROT_270)));
+
+        blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
+                ModBlocks.speaker.asBlock(),
+                new MultiVariant(WeightedList.of(new Variant(Radioplayer.id("block/speaker")))))
+                .with(PropertyDispatch.modify(RadioPlayerBlock.FACING)
+                        .select(Direction.NORTH, NOP)
+                        .select(Direction.EAST, Y_ROT_90)
+                        .select(Direction.SOUTH, Y_ROT_180)
+                        .select(Direction.WEST, Y_ROT_270)));
     }
 
     @Override
@@ -55,5 +64,9 @@ public class ModModelProvider extends FabricModelProvider {
         itemModelGenerators.itemModelOutput.accept(
                 ModBlocks.globe.asBlock().asItem(),
                 ItemModelUtils.plainModel(Radioplayer.id("block/globe")));
+
+        itemModelGenerators.itemModelOutput.accept(
+                ModBlocks.speaker.asBlock().asItem(),
+                ItemModelUtils.plainModel(Radioplayer.id("block/speaker")));
     }
 }

@@ -16,5 +16,6 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
     public void generate() {
         dropSelf(ModBlocks.radioPlayer.asBlock());
         dropSelf(ModBlocks.globe.asBlock());
+        dropSelf(ModBlocks.speaker.asBlock());
     }
 }

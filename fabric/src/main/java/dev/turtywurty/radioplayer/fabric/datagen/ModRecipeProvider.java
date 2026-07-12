@@ -5,9 +5,9 @@ import dev.turtywurty.radioplayer.block.ModBlocks;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricRecipeProvider;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.RecipeProvider;
-import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
@@ -30,20 +30,30 @@ public class ModRecipeProvider extends FabricRecipeProvider {
                         .define('N', Blocks.NOTE_BLOCK)
                         .define('P', ItemTags.PLANKS)
                         .define('R', Items.REDSTONE)
-                        .pattern("IPI")
-                        .pattern("RNR")
-                        .pattern("IPI")
+                        .pattern("RIR")
+                        .pattern("PNP")
+                        .pattern("PPP")
                         .unlockedBy("has_note_block", has(Blocks.NOTE_BLOCK))
                         .save(output);
 
                 shaped(RecipeCategory.REDSTONE, ModBlocks.globe.asBlock())
+                        .define('G', Blocks.GLASS)
+                        .define('I', Items.IRON_INGOT)
+                        .define('M', Items.MAP)
+                        .define('P', ItemTags.PLANKS)
+                        .pattern("GGG")
+                        .pattern("GMG")
+                        .pattern("PIP")
+                        .unlockedBy("has_map", has(Items.MAP))
+                        .save(output);
+
+                shaped(RecipeCategory.REDSTONE, ModBlocks.speaker.asBlock())
                         .define('I', Items.IRON_INGOT)
                         .define('N', Blocks.NOTE_BLOCK)
-                        .define('P', ItemTags.PLANKS)
-                        .define('R', Items.REDSTONE)
-                        .pattern("IPI")
-                        .pattern("RNR")
-                        .pattern("IPI")
+                        .define('W', ItemTags.WOOL)
+                        .pattern("WIW")
+                        .pattern("INI")
+                        .pattern("WIW")
                         .unlockedBy("has_note_block", has(Blocks.NOTE_BLOCK))
                         .save(output);
             }

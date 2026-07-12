@@ -33,7 +33,7 @@ public class RadioSoundInstance implements TickableSoundInstance {
         this.radioPos = radioPos;
         this.url = url;
 
-        this.identifier = Radioplayer.id(STREAM_PATH + Integer.toHexString(url.hashCode()));
+        this.identifier = Radioplayer.id(STREAM_PATH + Long.toHexString(radioPos.asLong()) + "/" + Integer.toHexString(url.hashCode()));
         this.sound = new Sound(
                 this.identifier,
                 ConstantFloat.of(1.0F),

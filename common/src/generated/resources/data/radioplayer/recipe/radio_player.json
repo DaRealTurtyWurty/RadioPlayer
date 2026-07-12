@@ -8,9 +8,9 @@
     "R": "minecraft:redstone"
   },
   "pattern": [
-    "IPI",
-    "RNR",
-    "IPI"
+    "RIR",
+    "PNP",
+    "PPP"
   ],
   "result": {
     "id": "radioplayer:radio_player"

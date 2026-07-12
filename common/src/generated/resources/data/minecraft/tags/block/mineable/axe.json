@@ -1,6 +1,7 @@
 {
   "values": [
     "radioplayer:radio_player",
-    "radioplayer:globe"
+    "radioplayer:globe",
+    "radioplayer:speaker"
   ]
 }

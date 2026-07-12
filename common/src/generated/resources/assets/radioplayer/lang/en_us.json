@@ -1,6 +1,7 @@
 {
   "block.radioplayer.globe": "Globe",
   "block.radioplayer.radio_player": "Radio Player",
+  "block.radioplayer.speaker": "Speaker",
   "radioplayer.configuration": "General",
   "radioplayer.configuration.ffmpegExecutablePath": "FFmpeg Executable Path",
   "radioplayer.configuration.ffmpegExecutablePath.tooltip": "Optional absolute path to FFmpeg. Used only when Lavaplayer cannot play a stream directly.",

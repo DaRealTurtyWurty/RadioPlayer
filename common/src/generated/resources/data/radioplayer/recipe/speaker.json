@@ -2,17 +2,16 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
-    "G": "minecraft:glass",
     "I": "minecraft:iron_ingot",
-    "M": "minecraft:map",
-    "P": "#minecraft:planks"
+    "N": "minecraft:note_block",
+    "W": "#minecraft:wool"
   },
   "pattern": [
-    "GGG",
-    "GMG",
-    "PIP"
+    "WIW",
+    "INI",
+    "WIW"
   ],
   "result": {
-    "id": "radioplayer:globe"
+    "id": "radioplayer:speaker"
   }
 }
