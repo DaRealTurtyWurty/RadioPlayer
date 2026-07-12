@@ -1,8 +1,11 @@
 package dev.turtywurty.radioplayer.fabric.datagen;
 
 import dev.turtywurty.radioplayer.Radioplayer;
+import dev.turtywurty.radioplayer.block.GlobeBlock;
+import dev.turtywurty.radioplayer.block.HorizontalDirection8;
 import dev.turtywurty.radioplayer.block.ModBlocks;
 import dev.turtywurty.radioplayer.block.RadioPlayerBlock;
+import dev.turtywurty.radioplayer.block.SpeakerBlock;
 import net.fabricmc.fabric.api.client.datagen.v1.provider.FabricModelProvider;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.minecraft.client.data.models.BlockModelGenerators;
@@ -31,15 +34,19 @@ public class ModModelProvider extends FabricModelProvider {
                 ModBlocks.radioPlayer.asBlock(),
                 new MultiVariant(WeightedList.of(new Variant(Radioplayer.id("block/radio")))))
                 .with(PropertyDispatch.modify(RadioPlayerBlock.FACING)
-                        .select(Direction.NORTH, NOP)
-                        .select(Direction.EAST, Y_ROT_90)
-                        .select(Direction.SOUTH, Y_ROT_180)
-                        .select(Direction.WEST, Y_ROT_270)));
+                        .select(HorizontalDirection8.NORTH, NOP)
+                        .select(HorizontalDirection8.NORTH_EAST, Y_ROT_90)
+                        .select(HorizontalDirection8.EAST, Y_ROT_90)
+                        .select(HorizontalDirection8.SOUTH_EAST, Y_ROT_180)
+                        .select(HorizontalDirection8.SOUTH, Y_ROT_180)
+                        .select(HorizontalDirection8.SOUTH_WEST, Y_ROT_270)
+                        .select(HorizontalDirection8.WEST, Y_ROT_270)
+                        .select(HorizontalDirection8.NORTH_WEST, NOP)));
 
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
                 ModBlocks.globe.asBlock(),
                 new MultiVariant(WeightedList.of(new Variant(Radioplayer.id("block/globe")))))
-                .with(PropertyDispatch.modify(RadioPlayerBlock.FACING)
+                .with(PropertyDispatch.modify(GlobeBlock.FACING)
                         .select(Direction.NORTH, NOP)
                         .select(Direction.EAST, Y_ROT_90)
                         .select(Direction.SOUTH, Y_ROT_180)
@@ -48,11 +55,28 @@ public class ModModelProvider extends FabricModelProvider {
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
                 ModBlocks.speaker.asBlock(),
                 new MultiVariant(WeightedList.of(new Variant(Radioplayer.id("block/speaker")))))
-                .with(PropertyDispatch.modify(RadioPlayerBlock.FACING)
-                        .select(Direction.NORTH, NOP)
-                        .select(Direction.EAST, Y_ROT_90)
-                        .select(Direction.SOUTH, Y_ROT_180)
-                        .select(Direction.WEST, Y_ROT_270)));
+                .with(PropertyDispatch.modify(SpeakerBlock.FACING)
+                        .select(HorizontalDirection8.NORTH, NOP)
+                        .select(HorizontalDirection8.NORTH_EAST, Y_ROT_90)
+                        .select(HorizontalDirection8.EAST, Y_ROT_90)
+                        .select(HorizontalDirection8.SOUTH_EAST, Y_ROT_180)
+                        .select(HorizontalDirection8.SOUTH, Y_ROT_180)
+                        .select(HorizontalDirection8.SOUTH_WEST, Y_ROT_270)
+                        .select(HorizontalDirection8.WEST, Y_ROT_270)
+                        .select(HorizontalDirection8.NORTH_WEST, NOP)));
+
+        blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
+                ModBlocks.subwoofer.asBlock(),
+                new MultiVariant(WeightedList.of(new Variant(Radioplayer.id("block/subwoofer")))))
+                .with(PropertyDispatch.modify(SpeakerBlock.FACING)
+                        .select(HorizontalDirection8.NORTH, NOP)
+                        .select(HorizontalDirection8.NORTH_EAST, Y_ROT_90)
+                        .select(HorizontalDirection8.EAST, Y_ROT_90)
+                        .select(HorizontalDirection8.SOUTH_EAST, Y_ROT_180)
+                        .select(HorizontalDirection8.SOUTH, Y_ROT_180)
+                        .select(HorizontalDirection8.SOUTH_WEST, Y_ROT_270)
+                        .select(HorizontalDirection8.WEST, Y_ROT_270)
+                        .select(HorizontalDirection8.NORTH_WEST, NOP)));
     }
 
     @Override
@@ -68,5 +92,9 @@ public class ModModelProvider extends FabricModelProvider {
         itemModelGenerators.itemModelOutput.accept(
                 ModBlocks.speaker.asBlock().asItem(),
                 ItemModelUtils.plainModel(Radioplayer.id("block/speaker")));
+
+        itemModelGenerators.itemModelOutput.accept(
+                ModBlocks.subwoofer.asBlock().asItem(),
+                ItemModelUtils.plainModel(Radioplayer.id("block/subwoofer")));
     }
 }

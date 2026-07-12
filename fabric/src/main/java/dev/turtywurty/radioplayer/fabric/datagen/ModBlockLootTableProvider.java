@@ -17,5 +17,6 @@ public class ModBlockLootTableProvider extends FabricBlockLootSubProvider {
         dropSelf(ModBlocks.radioPlayer.asBlock());
         dropSelf(ModBlocks.globe.asBlock());
         dropSelf(ModBlocks.speaker.asBlock());
+        dropSelf(ModBlocks.subwoofer.asBlock());
     }
 }

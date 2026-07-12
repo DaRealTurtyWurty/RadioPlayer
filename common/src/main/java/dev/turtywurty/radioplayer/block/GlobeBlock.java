@@ -30,12 +30,7 @@ import java.util.Map;
 
 public class GlobeBlock extends Block implements EntityBlock {
     private static final VoxelShape SHAPE = makeShape();
-    private static final Map<Direction, VoxelShape> SHAPES = Map.of(
-            Direction.NORTH, SHAPE,
-            Direction.EAST, calculateShape(Direction.EAST),
-            Direction.SOUTH, calculateShape(Direction.SOUTH),
-            Direction.WEST, calculateShape(Direction.WEST)
-    );
+    private static final Map<Direction, VoxelShape> SHAPES = Shapes.rotateHorizontal(SHAPE);
 
     public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
 
@@ -83,27 +78,12 @@ public class GlobeBlock extends Block implements EntityBlock {
         builder.add(FACING);
     }
 
-    private static VoxelShape makeShape(){
+    private static VoxelShape makeShape() {
         VoxelShape shape = Shapes.empty();
         shape = Shapes.join(shape, Shapes.box(0.1875, 0, 0.1875, 0.8125, 0.125, 0.8125), BooleanOp.OR);
         shape = Shapes.join(shape, Shapes.box(0.25, 0.125, 0.25, 0.75, 0.1875, 0.75), BooleanOp.OR);
         shape = Shapes.join(shape, Shapes.box(0.1875, 0.1875, 0.1875, 0.8125, 1, 0.9375), BooleanOp.OR);
 
         return shape;
-    }
-
-    private static VoxelShape calculateShape(Direction to) {
-        final VoxelShape[] buffer = {SHAPE, Shapes.empty()};
-
-        final int times = (to.get2DDataValue() - Direction.NORTH.get2DDataValue() + 4) % 4;
-        for (int i = 0; i < times; i++) {
-            buffer[0].forAllBoxes((minX, minY, minZ, maxX, maxY, maxZ) ->
-                    buffer[1] = Shapes.or(buffer[1],
-                            Shapes.box(1 - maxZ, minY, minX, 1 - minZ, maxY, maxX)));
-            buffer[0] = buffer[1];
-            buffer[1] = Shapes.empty();
-        }
-
-        return buffer[0];
     }
 }

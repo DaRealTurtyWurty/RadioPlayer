@@ -1,6 +1,8 @@
 package dev.turtywurty.radioplayer.mixin;
 
 import dev.turtywurty.radioplayer.sound.LavaPlayerAudioStream;
+import dev.turtywurty.radioplayer.sound.RadioAudioSource;
+import dev.turtywurty.radioplayer.sound.RadioMixerAudioStream;
 import dev.turtywurty.radioplayer.sound.RadioSoundInstance;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
@@ -20,17 +22,17 @@ public class SoundBufferLibraryMixin {
     @Inject(method = "getStream", at = @At("HEAD"), cancellable = true)
     private void radioplayer$getStream(Identifier location, boolean looping,
                                        CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
-        String url = RadioSoundInstance.getUrl(location);
-        if (url == null)
+        RadioAudioSource source = RadioAudioSource.getBySoundPath(location);
+        if (source == null)
             return;
 
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
-                AudioStream stream = LavaPlayerAudioStream.open(url);
+                AudioStream decodedStream = LavaPlayerAudioStream.open(source.getUrl());
                 RadioSoundInstance.markReady(location);
-                return stream;
+                return new RadioMixerAudioStream(source, decodedStream);
             } catch (IOException exception) {
-                throw new CompletionException("Failed to open audio stream for URL: " + url, exception);
+                throw new CompletionException("Failed to open audio stream for URL: " + source.getUrl(), exception);
             }
         }, Util.nonCriticalIoPool()));
     }

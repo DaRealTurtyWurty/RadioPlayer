@@ -56,6 +56,17 @@ public class ModRecipeProvider extends FabricRecipeProvider {
                         .pattern("WIW")
                         .unlockedBy("has_note_block", has(Blocks.NOTE_BLOCK))
                         .save(output);
+
+                shaped(RecipeCategory.REDSTONE, ModBlocks.subwoofer.asBlock())
+                        .define('I', Items.IRON_INGOT)
+                        .define('N', Blocks.NOTE_BLOCK)
+                        .define('W', ItemTags.WOOL)
+                        .define('R', Items.REDSTONE)
+                        .pattern("WWW")
+                        .pattern("INI")
+                        .pattern("RIR")
+                        .unlockedBy("has_note_block", has(Blocks.NOTE_BLOCK))
+                        .save(output);
             }
         };
     }

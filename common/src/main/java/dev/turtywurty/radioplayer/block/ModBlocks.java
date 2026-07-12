@@ -11,6 +11,7 @@ public class ModBlocks {
     public static DeferredBlock radioPlayer;
     public static DeferredBlock globe;
     public static DeferredBlock speaker;
+    public static DeferredBlock subwoofer;
 
     public static void initialize(BalmBlockRegistrar blocks) {
         radioPlayer = blocks.register("radio_player", RadioPlayerBlock::new, it ->
@@ -34,6 +35,16 @@ public class ModBlocks {
                 .asDeferredBlock();
 
         speaker = blocks.register("speaker", SpeakerBlock::new, it ->
+                        it.mapColor(MapColor.COLOR_BLACK)
+                                .instrument(NoteBlockInstrument.BASS)
+                                .strength(2.0F, 6.0F)
+                                .sound(SoundType.WOOD)
+                                .ignitedByLava()
+                                .noOcclusion())
+                .withItem(BlockItem::new)
+                .asDeferredBlock();
+
+        subwoofer = blocks.register("subwoofer", SubwooferBlock::new, it ->
                         it.mapColor(MapColor.COLOR_BLACK)
                                 .instrument(NoteBlockInstrument.BASS)
                                 .strength(2.0F, 6.0F)

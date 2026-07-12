@@ -45,6 +45,7 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         add(translationBuilder, StationListWidget.EMPTY_STATIONS_LABEL, "No stations");
         add(translationBuilder, StationListWidget.SEARCH_LABEL, "Search");
         translationBuilder.add(ModBlocks.speaker.asBlock(), "Speaker");
+        translationBuilder.add(ModBlocks.subwoofer.asBlock(), "Subwoofer");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {

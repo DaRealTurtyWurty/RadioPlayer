@@ -2,6 +2,7 @@
   "values": [
     "radioplayer:radio_player",
     "radioplayer:globe",
-    "radioplayer:speaker"
+    "radioplayer:speaker",
+    "radioplayer:subwoofer"
   ]
 }
