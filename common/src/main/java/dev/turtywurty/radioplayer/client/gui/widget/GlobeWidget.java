@@ -20,6 +20,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class GlobeWidget extends AbstractWidget {
     private final List<GlobePoint> points;
@@ -35,6 +36,8 @@ public class GlobeWidget extends AbstractWidget {
     private final float initialPitch;
     private final float initialZoom;
     private final boolean initiallyUserControlled;
+    private final Consumer<GlobePoint> pointClickHandler;
+    private final Consumer<PointCollisionResult> pointCollisionHandler;
 
     private int sphereX;
     private int sphereY;
@@ -63,6 +66,8 @@ public class GlobeWidget extends AbstractWidget {
         this.initialYaw = wrapRadians((float) Math.toRadians(builder.initialYawDegrees));
         this.initialPitch = (float) Math.toRadians(builder.initialPitchDegrees);
         this.initiallyUserControlled = builder.initialRotationSet;
+        this.pointClickHandler = builder.pointClickHandler;
+        this.pointCollisionHandler = builder.pointCollisionHandler;
         resetView();
     }
 
@@ -78,7 +83,9 @@ public class GlobeWidget extends AbstractWidget {
         this.sphereY = getY() + (getHeight() - this.sphereSize) / 2;
 
         Quaternionf renderRotation = currentRenderRotation();
-        this.renderablePoints = visiblePoints(renderRotation);
+        PointCollisionResult pointCollisionResult = visiblePoints(renderRotation);
+        this.renderablePoints = pointCollisionResult.visiblePoints();
+        this.pointCollisionHandler.accept(pointCollisionResult);
         var renderState = getSpherePictureRenderState(renderRotation);
         ((GuiGraphicsExtractorAccessor) graphics)
                 .radioplayer$getGuiRenderState()
@@ -116,7 +123,7 @@ public class GlobeWidget extends AbstractWidget {
         GlobePoint clickedPoint = findPointAt(event.x(), event.y(), currentRenderRotation());
         if (clickedPoint != null) {
             playButtonClickSound(Minecraft.getInstance().getSoundManager());
-            clickedPoint.click();
+            this.pointClickHandler.accept(clickedPoint);
             return;
         }
 
@@ -194,6 +201,18 @@ public class GlobeWidget extends AbstractWidget {
 
     public float getZoom() {
         return this.zoom;
+    }
+
+    public float getYawDegrees() {
+        return (float) Math.toDegrees(this.yaw);
+    }
+
+    public float getPitchDegrees() {
+        return (float) Math.toDegrees(this.pitch);
+    }
+
+    public boolean isUserControlled() {
+        return this.userControlled;
     }
 
     public float getPointSizeMultiplier() {
@@ -277,8 +296,10 @@ public class GlobeWidget extends AbstractWidget {
         return closestPoint;
     }
 
-    private List<GlobePoint> visiblePoints(Quaternionf rotation) {
+    private PointCollisionResult visiblePoints(Quaternionf rotation) {
         List<GlobePoint> visiblePoints = new ArrayList<>();
+        List<HiddenPointGroup> hiddenPointGroups = new ArrayList<>();
+        List<ScreenPoint> occupiedPoints = new ArrayList<>();
         float globeRadius = sphereRadius();
         double centerX = sphereCenterX();
         double centerY = sphereCenterY();
@@ -298,13 +319,33 @@ public class GlobeWidget extends AbstractWidget {
             double pointX = centerX - position.x * distanceFromCenter;
             double pointY = centerY + position.y * distanceFromCenter;
             double pointRadius = pointSize * 0.5D;
-            if (pointX + pointRadius >= left && pointX - pointRadius <= right &&
-                    pointY + pointRadius >= top && pointY - pointRadius <= bottom) {
+            if (pointX + pointRadius < left || pointX - pointRadius > right ||
+                    pointY + pointRadius < top || pointY - pointRadius > bottom) {
+                continue;
+            }
+
+            ScreenPoint overlappingPoint = findOverlappingPoint(occupiedPoints, pointX, pointY, pointRadius);
+            if (overlappingPoint == null) {
                 visiblePoints.add(point);
+                occupiedPoints.add(new ScreenPoint(point, pointX, pointY, pointRadius));
+            } else {
+                hiddenPointGroups.add(new HiddenPointGroup(overlappingPoint.point(), point));
             }
         }
 
-        return visiblePoints;
+        return new PointCollisionResult(visiblePoints, hiddenPointGroups);
+    }
+
+    private static @Nullable ScreenPoint findOverlappingPoint(List<ScreenPoint> occupiedPoints, double x, double y, double radius) {
+        for (ScreenPoint occupiedPoint : occupiedPoints) {
+            double dx = x - occupiedPoint.x();
+            double dy = y - occupiedPoint.y();
+            double minDistance = radius + occupiedPoint.radius();
+            if (dx * dx + dy * dy < minDistance * minDistance)
+                return occupiedPoint;
+        }
+
+        return null;
     }
 
     private static Vector3f pointPosition(GlobePoint point) {
@@ -363,6 +404,9 @@ public class GlobeWidget extends AbstractWidget {
         private boolean panningEnabled = true;
         private boolean zoomEnabled = true;
         private boolean clipToBounds = true;
+        private Consumer<GlobePoint> pointClickHandler = GlobePoint::click;
+        private Consumer<PointCollisionResult> pointCollisionHandler = _ -> {
+        };
 
         private Builder() {
         }
@@ -435,6 +479,16 @@ public class GlobeWidget extends AbstractWidget {
             return this;
         }
 
+        public Builder onPointClick(Consumer<GlobePoint> pointClickHandler) {
+            this.pointClickHandler = pointClickHandler;
+            return this;
+        }
+
+        public Builder onPointCollisions(Consumer<PointCollisionResult> pointCollisionHandler) {
+            this.pointCollisionHandler = pointCollisionHandler;
+            return this;
+        }
+
         public GlobeWidget build() {
             if (this.width <= 0 || this.height <= 0)
                 throw new IllegalStateException("Globe widget dimensions must be greater than zero");
@@ -450,8 +504,25 @@ public class GlobeWidget extends AbstractWidget {
                 throw new IllegalStateException("Initial rotation is invalid");
             if (this.autoRotationPeriodMs < 0L)
                 throw new IllegalStateException("Auto-rotation period cannot be negative");
+            if (this.pointClickHandler == null)
+                throw new IllegalStateException("Point click handler cannot be null");
+            if (this.pointCollisionHandler == null)
+                throw new IllegalStateException("Point collision handler cannot be null");
 
             return new GlobeWidget(this);
+        }
+    }
+
+    private record ScreenPoint(GlobePoint point, double x, double y, double radius) {
+    }
+
+    public record HiddenPointGroup(GlobePoint visiblePoint, GlobePoint hiddenPoint) {
+    }
+
+    public record PointCollisionResult(List<GlobePoint> visiblePoints, List<HiddenPointGroup> hiddenPointGroups) {
+        public PointCollisionResult {
+            visiblePoints = List.copyOf(visiblePoints);
+            hiddenPointGroups = List.copyOf(hiddenPointGroups);
         }
     }
 }

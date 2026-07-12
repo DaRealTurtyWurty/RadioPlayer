@@ -3,6 +3,7 @@ package dev.turtywurty.radioplayer.client;
 import de.sfuhrm.radiobrowser4j.*;
 import dev.turtywurty.radioplayer.Radioplayer;
 import dev.turtywurty.radioplayer.api.client.GlobePoint;
+import net.minecraft.util.Mth;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +34,7 @@ public final class GlobePointCache {
     private static final Object LOCK = new Object();
     private static final List<GlobePoint> POINTS = new ArrayList<>();
     private static final Set<String> LOADED_STATION_KEYS = new HashSet<>();
+    private static final Map<String, CompletableFuture<List<GlobePoint>>> CELL_LOAD_FUTURES = new HashMap<>();
     private static CompletableFuture<Void> pointLoadFuture;
     private static volatile int requestedPointCount;
     private static volatile int loadedPointCount;
@@ -50,6 +52,32 @@ public final class GlobePointCache {
     public static List<GlobePoint> snapshot() {
         synchronized (LOCK) {
             return List.copyOf(POINTS);
+        }
+    }
+
+    public static CompletableFuture<List<GlobePoint>> requestCellPoints(GlobePoint point, double cellSizeDegrees) {
+        if (cellSizeDegrees <= 0.0D)
+            return CompletableFuture.completedFuture(snapshot());
+
+        CellBounds bounds = CellBounds.forPoint(point, cellSizeDegrees);
+        String cellKey = bounds.key();
+        synchronized (LOCK) {
+            CompletableFuture<List<GlobePoint>> existingFuture = CELL_LOAD_FUTURES.get(cellKey);
+            if (existingFuture != null && !existingFuture.isDone())
+                return existingFuture;
+
+            CompletableFuture<List<GlobePoint>> future = CompletableFuture
+                    .supplyAsync(() -> loadCellPoints(bounds), POINT_LOADER_EXECUTOR)
+                    .whenComplete((_, throwable) -> {
+                        if (throwable != null)
+                            Radioplayer.LOGGER.error("Failed to load globe points for cell {}", cellKey, throwable);
+
+                        synchronized (LOCK) {
+                            CELL_LOAD_FUTURES.remove(cellKey);
+                        }
+                    });
+            CELL_LOAD_FUTURES.put(cellKey, future);
+            return future;
         }
     }
 
@@ -205,6 +233,58 @@ public final class GlobePointCache {
         throw new IllegalStateException("Every RadioBrowser endpoint failed", lastException);
     }
 
+    private static List<GlobePoint> loadCellPoints(CellBounds bounds) {
+        int offset = 0;
+        while (true) {
+            List<Station> stations = fetchStationsInCell(bounds, offset, POINT_FETCH_PAGE_SIZE);
+            if (stations.isEmpty())
+                break;
+
+            List<GlobePoint> loadedPoints = createLodOrderedPoints(stations.stream()
+                    .filter(bounds::contains)
+                    .map(GlobePointCache::createPoint)
+                    .filter(Objects::nonNull)
+                    .toList());
+            appendLoadedPoints(loadedPoints);
+
+            if (stations.size() < POINT_FETCH_PAGE_SIZE)
+                break;
+
+            offset += stations.size();
+        }
+
+        return snapshot().stream()
+                .filter(bounds::contains)
+                .toList();
+    }
+
+    private static List<Station> fetchStationsInCell(CellBounds bounds, int offset, int limit) {
+        String agent = createUserAgent();
+        RuntimeException lastException = null;
+        for (String endpoint : RADIO_BROWSER_ENDPOINTS) {
+            try {
+                var browser = new RadioBrowser(
+                        ConnectionParams.builder()
+                                .apiUrl(endpoint)
+                                .userAgent(agent)
+                                .timeout(5_000)
+                                .build());
+
+                Radioplayer.LOGGER.info("Loading {} globe stations from RadioBrowser endpoint: {} offset {} cell {}",
+                        limit, endpoint, offset, bounds.key());
+                return browser.listStationsWithAdvancedSearch(
+                        Paging.at(offset, limit),
+                        STATION_SEARCH,
+                        new GeoDistanceParameter(bounds.centerLatitude(), bounds.centerLongitude(), bounds.radiusMeters()));
+            } catch (RuntimeException exception) {
+                lastException = exception;
+                Radioplayer.LOGGER.debug("Failed to load globe cell points from RadioBrowser endpoint: {}", endpoint, exception);
+            }
+        }
+
+        throw new IllegalStateException("Every RadioBrowser endpoint failed", lastException);
+    }
+
     private static GlobePoint createPoint(Station station) {
         if (station.getGeoLatitude() == null || station.getGeoLongitude() == null)
             return null;
@@ -225,14 +305,101 @@ public final class GlobePointCache {
     }
 
     private static String stationKey(GlobePoint point) {
-        if (point instanceof RadioStationPoint radioStationPoint) {
-            if (radioStationPoint.getStationId() != null)
-                return radioStationPoint.getStationId().toString();
-
-            if (radioStationPoint.getStationUrl() != null)
-                return radioStationPoint.getStationUrl();
-        }
+        if (point instanceof RadioStationPoint radioStationPoint)
+            return radioStationPoint.getStationKey();
 
         return point.getLatitude() + "," + point.getLongitude();
+    }
+
+    private static final class GeoDistanceParameter extends Parameter {
+        private final double latitude;
+        private final double longitude;
+        private final double distanceMeters;
+
+        private GeoDistanceParameter(double latitude, double longitude, double distanceMeters) {
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.distanceMeters = distanceMeters;
+        }
+
+        @Override
+        protected void apply(Map<String, String> requestParams) {
+            requestParams.put("geo_lat", Double.toString(this.latitude));
+            requestParams.put("geo_long", Double.toString(this.longitude));
+            requestParams.put("geo_distance", Double.toString(this.distanceMeters));
+        }
+    }
+
+    private record CellBounds(
+            int latitudeCell,
+            int longitudeCell,
+            int longitudeCellCount,
+            double minLatitude,
+            double maxLatitude,
+            double minLongitude,
+            double maxLongitude,
+            double centerLatitude,
+            double centerLongitude,
+            double radiusMeters
+    ) {
+        private static CellBounds forPoint(GlobePoint point, double cellSizeDegrees) {
+            int latitudeCell = Mth.floor((point.getLatitude() + 90.0D) / cellSizeDegrees);
+            int longitudeCell = Mth.floor((point.getLongitude() + 180.0D) / cellSizeDegrees);
+            int longitudeCellCount = Mth.ceil(360.0D / cellSizeDegrees);
+            longitudeCell = Math.floorMod(longitudeCell, longitudeCellCount);
+
+            double minLatitude = Math.max(-90.0D, latitudeCell * cellSizeDegrees - 90.0D);
+            double maxLatitude = Math.min(90.0D, minLatitude + cellSizeDegrees);
+            double minLongitude = Math.max(-180.0D, longitudeCell * cellSizeDegrees - 180.0D);
+            double maxLongitude = Math.min(180.0D, minLongitude + cellSizeDegrees);
+            double centerLatitude = (minLatitude + maxLatitude) * 0.5D;
+            double centerLongitude = (minLongitude + maxLongitude) * 0.5D;
+            double radiusMeters = Math.max(
+                    distanceMeters(centerLatitude, centerLongitude, minLatitude, minLongitude),
+                    distanceMeters(centerLatitude, centerLongitude, maxLatitude, maxLongitude));
+
+            return new CellBounds(
+                    latitudeCell,
+                    longitudeCell,
+                    longitudeCellCount,
+                    minLatitude,
+                    maxLatitude,
+                    minLongitude,
+                    maxLongitude,
+                    centerLatitude,
+                    centerLongitude,
+                    radiusMeters);
+        }
+
+        private boolean contains(Station station) {
+            return station.getGeoLatitude() != null &&
+                    station.getGeoLongitude() != null &&
+                    contains(station.getGeoLatitude(), station.getGeoLongitude());
+        }
+
+        private boolean contains(GlobePoint point) {
+            return contains(point.getLatitude(), point.getLongitude());
+        }
+
+        private boolean contains(double latitude, double longitude) {
+            return latitude >= this.minLatitude &&
+                    latitude < this.maxLatitude &&
+                    longitude >= this.minLongitude &&
+                    longitude < this.maxLongitude;
+        }
+
+        private String key() {
+            return this.latitudeCell + ":" + this.longitudeCell + ":" + this.longitudeCellCount;
+        }
+
+        private static double distanceMeters(double latitudeA, double longitudeA, double latitudeB, double longitudeB) {
+            double latA = Math.toRadians(latitudeA);
+            double latB = Math.toRadians(latitudeB);
+            double deltaLat = Math.toRadians(latitudeB - latitudeA);
+            double deltaLon = Math.toRadians(longitudeB - longitudeA);
+            double halfChordLength = Math.sin(deltaLat * 0.5D) * Math.sin(deltaLat * 0.5D) +
+                    Math.cos(latA) * Math.cos(latB) * Math.sin(deltaLon * 0.5D) * Math.sin(deltaLon * 0.5D);
+            return 6_371_000.0D * 2.0D * Math.atan2(Math.sqrt(halfChordLength), Math.sqrt(1.0D - halfChordLength));
+        }
     }
 }
