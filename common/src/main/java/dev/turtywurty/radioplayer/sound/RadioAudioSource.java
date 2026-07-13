@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class RadioAudioSource {
+    private static final Map<Identifier, RadioAudioSource> SOURCES_BY_SOUND_PATH = new ConcurrentHashMap<>();
     private final BlockPos radioPos;
     private String url;
     private RadioSoundInstance sound;
@@ -19,15 +20,13 @@ public final class RadioAudioSource {
     private volatile Vec3 listenerPos = Vec3.ZERO;
     private volatile Vec3 listenerRight = new Vec3(1, 0, 0);
 
-    private static final Map<Identifier, RadioAudioSource> SOURCES_BY_SOUND_PATH = new ConcurrentHashMap<>();
-
-    public static @Nullable RadioAudioSource getBySoundPath(Identifier soundPath) {
-        return SOURCES_BY_SOUND_PATH.get(soundPath);
-    }
-
     public RadioAudioSource(BlockPos radioPos, String url) {
         this.radioPos = radioPos.immutable();
         this.url = url;
+    }
+
+    public static @Nullable RadioAudioSource getBySoundPath(Identifier soundPath) {
+        return SOURCES_BY_SOUND_PATH.get(soundPath);
     }
 
     public void start(Minecraft minecraft) {

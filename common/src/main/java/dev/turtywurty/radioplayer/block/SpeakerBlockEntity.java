@@ -33,6 +33,10 @@ public class SpeakerBlockEntity extends BlockEntity {
         super(type, pos, state);
     }
 
+    private static boolean isUsableSource(RadioPlayerBlockEntity radio) {
+        return radio.isPlaying() && !radio.getUrl().isBlank();
+    }
+
     public @Nullable BlockPos getLinkedRadioPos() {
         return this.linkedRadioPos;
     }
@@ -109,10 +113,6 @@ public class SpeakerBlockEntity extends BlockEntity {
         }
 
         return closestRadio;
-    }
-
-    private static boolean isUsableSource(RadioPlayerBlockEntity radio) {
-        return radio.isPlaying() && !radio.getUrl().isBlank();
     }
 
     private void update() {

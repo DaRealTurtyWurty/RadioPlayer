@@ -43,14 +43,14 @@ public class GlobeScreen extends Screen {
             new LodLevel(23.0F, 15_000, 0.18D, 0.34F),
             new LodLevel(MAX_ZOOM, Integer.MAX_VALUE, 0.12D, 0.28F)
     };
+    private final Map<GlobePoint, List<GlobePoint>> hiddenPointsByVisiblePoint = new HashMap<>();
+    private final Map<GlobePoint, List<GlobePoint>> hiddenPointsByGeographicCell = new HashMap<>();
+    private final Map<GlobePoint, List<GlobePoint>> hiddenPointsByScreenCollision = new HashMap<>();
     private GlobeWidget globeWidget;
     private StationListWidget stationListWidget;
     private int visibleLoadedPointCount = -1;
     private double visibleCellSize = -1.0D;
     private float visiblePointSize = -1.0F;
-    private final Map<GlobePoint, List<GlobePoint>> hiddenPointsByVisiblePoint = new HashMap<>();
-    private final Map<GlobePoint, List<GlobePoint>> hiddenPointsByGeographicCell = new HashMap<>();
-    private final Map<GlobePoint, List<GlobePoint>> hiddenPointsByScreenCollision = new HashMap<>();
     private GlobePoint selectedCollapsedPoint;
     private List<GlobePoint> selectedStationPoints = List.of();
     private boolean selectedHiddenPointsLoading;
@@ -62,6 +62,34 @@ public class GlobeScreen extends Screen {
 
     public GlobeScreen() {
         super(TITLE);
+    }
+
+    private static List<GlobePoint> selectedCellPoints(GlobePoint selectedPoint, List<GlobePoint> cellPoints) {
+        List<GlobePoint> points = new ArrayList<>();
+        Set<String> addedPoints = new HashSet<>();
+        points.add(selectedPoint);
+        addedPoints.add(stationKey(selectedPoint));
+        for (GlobePoint point : cellPoints) {
+            if (addedPoints.add(stationKey(point))) {
+                points.add(point);
+            }
+        }
+
+        return List.copyOf(points);
+    }
+
+    private static String stationKey(GlobePoint point) {
+        if (point instanceof RadioStationPoint radioStationPoint)
+            return radioStationPoint.getStationKey();
+
+        return point.getLatitude() + "," + point.getLongitude();
+    }
+
+    private static int spatialCellKey(GlobePoint point, double cellSizeDegrees) {
+        int latitudeCell = Mth.floor((point.getLatitude() + 90.0D) / cellSizeDegrees);
+        int longitudeCell = Mth.floor((point.getLongitude() + 180.0D) / cellSizeDegrees);
+        int longitudeCellCount = Mth.ceil(360.0D / cellSizeDegrees);
+        return latitudeCell * longitudeCellCount + Math.floorMod(longitudeCell, longitudeCellCount);
     }
 
     @Override
@@ -244,34 +272,6 @@ public class GlobeScreen extends Screen {
 
         this.stationListWidget.setStations(this.selectedStationPoints);
         this.stationListWidget.setLoading(this.selectedHiddenPointsLoading);
-    }
-
-    private static List<GlobePoint> selectedCellPoints(GlobePoint selectedPoint, List<GlobePoint> cellPoints) {
-        List<GlobePoint> points = new ArrayList<>();
-        Set<String> addedPoints = new HashSet<>();
-        points.add(selectedPoint);
-        addedPoints.add(stationKey(selectedPoint));
-        for (GlobePoint point : cellPoints) {
-            if (addedPoints.add(stationKey(point))) {
-                points.add(point);
-            }
-        }
-
-        return List.copyOf(points);
-    }
-
-    private static String stationKey(GlobePoint point) {
-        if (point instanceof RadioStationPoint radioStationPoint)
-            return radioStationPoint.getStationKey();
-
-        return point.getLatitude() + "," + point.getLongitude();
-    }
-
-    private static int spatialCellKey(GlobePoint point, double cellSizeDegrees) {
-        int latitudeCell = Mth.floor((point.getLatitude() + 90.0D) / cellSizeDegrees);
-        int longitudeCell = Mth.floor((point.getLongitude() + 180.0D) / cellSizeDegrees);
-        int longitudeCellCount = Mth.ceil(360.0D / cellSizeDegrees);
-        return latitudeCell * longitudeCellCount + Math.floorMod(longitudeCell, longitudeCellCount);
     }
 
     private void extractGlobePanel(GuiGraphicsExtractor graphics) {

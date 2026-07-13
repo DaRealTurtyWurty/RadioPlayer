@@ -75,6 +75,40 @@ public class GlobeWidget extends AbstractWidget {
         return new Builder();
     }
 
+    private static @Nullable ScreenPoint findOverlappingPoint(List<ScreenPoint> occupiedPoints, double x, double y, double radius) {
+        for (ScreenPoint occupiedPoint : occupiedPoints) {
+            double dx = x - occupiedPoint.x();
+            double dy = y - occupiedPoint.y();
+            double minDistance = radius + occupiedPoint.radius();
+            if (dx * dx + dy * dy < minDistance * minDistance)
+                return occupiedPoint;
+        }
+
+        return null;
+    }
+
+    private static Vector3f pointPosition(GlobePoint point) {
+        double latitude = Math.toRadians(point.getLatitude());
+        double longitude = Math.toRadians(point.getLongitude() + 180.0D);
+        float cosLatitude = (float) Math.cos(latitude);
+        return new Vector3f(
+                cosLatitude * (float) Math.cos(longitude),
+                -(float) Math.sin(latitude),
+                cosLatitude * (float) Math.sin(longitude)
+        );
+    }
+
+    private static float wrapRadians(float angle) {
+        angle %= Mth.TWO_PI;
+        if (angle > Math.PI) {
+            angle -= Mth.TWO_PI;
+        } else if (angle < -Math.PI) {
+            angle += Mth.TWO_PI;
+        }
+
+        return angle;
+    }
+
     @Override
     protected void extractWidgetRenderState(@NonNull GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
         int viewportSize = Math.clamp(getHeight(), 1, getWidth());
@@ -203,6 +237,13 @@ public class GlobeWidget extends AbstractWidget {
         return this.zoom;
     }
 
+    public void setZoom(float zoom) {
+        if (!Float.isFinite(zoom))
+            throw new IllegalArgumentException("Zoom must be finite");
+
+        this.zoom = Mth.clamp(zoom, this.minZoom, this.maxZoom);
+    }
+
     public float getYawDegrees() {
         return (float) Math.toDegrees(this.yaw);
     }
@@ -224,13 +265,6 @@ public class GlobeWidget extends AbstractWidget {
             throw new IllegalArgumentException("Point size multiplier must be finite and greater than zero");
 
         this.pointSizeMultiplier = pointSizeMultiplier;
-    }
-
-    public void setZoom(float zoom) {
-        if (!Float.isFinite(zoom))
-            throw new IllegalArgumentException("Zoom must be finite");
-
-        this.zoom = Mth.clamp(zoom, this.minZoom, this.maxZoom);
     }
 
     public void setRotation(float yawDegrees, float pitchDegrees) {
@@ -336,40 +370,6 @@ public class GlobeWidget extends AbstractWidget {
         return new PointCollisionResult(visiblePoints, hiddenPointGroups);
     }
 
-    private static @Nullable ScreenPoint findOverlappingPoint(List<ScreenPoint> occupiedPoints, double x, double y, double radius) {
-        for (ScreenPoint occupiedPoint : occupiedPoints) {
-            double dx = x - occupiedPoint.x();
-            double dy = y - occupiedPoint.y();
-            double minDistance = radius + occupiedPoint.radius();
-            if (dx * dx + dy * dy < minDistance * minDistance)
-                return occupiedPoint;
-        }
-
-        return null;
-    }
-
-    private static Vector3f pointPosition(GlobePoint point) {
-        double latitude = Math.toRadians(point.getLatitude());
-        double longitude = Math.toRadians(point.getLongitude() + 180.0D);
-        float cosLatitude = (float) Math.cos(latitude);
-        return new Vector3f(
-                cosLatitude * (float) Math.cos(longitude),
-                -(float) Math.sin(latitude),
-                cosLatitude * (float) Math.sin(longitude)
-        );
-    }
-
-    private static float wrapRadians(float angle) {
-        angle %= Mth.TWO_PI;
-        if (angle > Math.PI) {
-            angle -= Mth.TWO_PI;
-        } else if (angle < -Math.PI) {
-            angle += Mth.TWO_PI;
-        }
-
-        return angle;
-    }
-
     private double sphereCenterX() {
         return this.sphereX + this.sphereSize / 2.0D;
     }
@@ -386,12 +386,12 @@ public class GlobeWidget extends AbstractWidget {
     }
 
     public static final class Builder {
+        private final List<GlobePoint> points = new ArrayList<>();
         private int x;
         private int y;
         private int width = 100;
         private int height = 100;
         private Component message = Component.empty();
-        private final List<GlobePoint> points = new ArrayList<>();
         private float minZoom = 1.0F;
         private float maxZoom = 5.0F;
         private float initialZoom = 1.0F;

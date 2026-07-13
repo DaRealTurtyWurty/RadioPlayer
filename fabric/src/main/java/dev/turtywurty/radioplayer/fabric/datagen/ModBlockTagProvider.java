@@ -20,6 +20,10 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
                 .add(ModBlocks.radioPlayer.asResourceKey())
                 .add(ModBlocks.globe.asResourceKey())
                 .add(ModBlocks.speaker.asResourceKey())
+                .add(ModBlocks.bassReflexSpeaker.asResourceKey())
+                .add(ModBlocks.hornSpeaker.asResourceKey())
+                .add(ModBlocks.bookshelfSpeaker.asResourceKey())
+                .add(ModBlocks.floorStandingSpeaker.asResourceKey())
                 .add(ModBlocks.subwoofer.asResourceKey());
     }
 }

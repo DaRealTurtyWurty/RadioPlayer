@@ -21,6 +21,14 @@ public class RadioStationPoint extends GlobePoint {
         this.bitrate = bitrate;
     }
 
+    private static String normalize(@Nullable String value) {
+        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String roundedCoordinate(double value) {
+        return String.format(Locale.ROOT, "%.5f", value);
+    }
+
     public @Nullable UUID getStationId() {
         return stationId;
     }
@@ -55,27 +63,19 @@ public class RadioStationPoint extends GlobePoint {
         return "point:" + roundedCoordinate(getLatitude()) + "," + roundedCoordinate(getLongitude());
     }
 
-    private static String normalize(@Nullable String value) {
-        return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
-    }
-
-    private static String roundedCoordinate(double value) {
-        return String.format(Locale.ROOT, "%.5f", value);
-    }
-
     @Override
     public void click() {
         super.click();
         Radioplayer.LOGGER.info("""
-                Radio station point clicked:
-                  stationId={}
-                  name={}
-                  url={}
-                  bitrate={}
-                  latitude={}
-                  longitude={}
-                  color={}
-                  size={}""",
+                        Radio station point clicked:
+                          stationId={}
+                          name={}
+                          url={}
+                          bitrate={}
+                          latitude={}
+                          longitude={}
+                          color={}
+                          size={}""",
                 this.stationId,
                 this.stationName,
                 this.stationUrl,

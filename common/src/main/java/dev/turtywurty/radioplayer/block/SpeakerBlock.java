@@ -19,13 +19,24 @@ import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 public class SpeakerBlock extends Block implements EntityBlock {
-    private static final VoxelShape SHAPE = Shapes.box(0.125, 0, 0.125, 0.875, 1, 0.875);
-    private static final Map<Direction, VoxelShape> SHAPES = Shapes.rotateHorizontal(SHAPE);
-
     public static final EnumProperty<HorizontalDirection8> FACING = EnumProperty.create("facing", HorizontalDirection8.class);
+    private static final VoxelShape SHAPE = Shapes.box(0.125, 0, 0.125, 0.875, 1, 0.875);
+
+    private final SpeakerType speakerType;
+    private final Map<Direction, VoxelShape> shapes;
 
     public SpeakerBlock(Properties properties) {
+        this(properties, SpeakerType.FULL_RANGE);
+    }
+
+    public SpeakerBlock(Properties properties, SpeakerType speakerType) {
+        this(properties, speakerType, SHAPE);
+    }
+
+    public SpeakerBlock(Properties properties, SpeakerType speakerType, VoxelShape shape) {
         super(properties);
+        this.speakerType = speakerType;
+        this.shapes = Shapes.rotateHorizontal(shape);
     }
 
     @Override
@@ -34,12 +45,12 @@ public class SpeakerBlock extends Block implements EntityBlock {
     }
 
     public SpeakerType getSpeakerType() {
-        return SpeakerType.FULL_RANGE;
+        return this.speakerType;
     }
 
     @Override
     protected @NonNull VoxelShape getShape(BlockState state, @NonNull BlockGetter level, @NonNull BlockPos pos, @NonNull CollisionContext context) {
-        return SHAPES.get(state.getValue(FACING).nearestCardinal());
+        return this.shapes.get(state.getValue(FACING).nearestCardinal());
     }
 
     @Override

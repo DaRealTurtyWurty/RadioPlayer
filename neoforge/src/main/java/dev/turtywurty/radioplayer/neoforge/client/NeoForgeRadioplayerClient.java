@@ -5,7 +5,6 @@ import dev.turtywurty.radioplayer.block.ModBlockEntities;
 import dev.turtywurty.radioplayer.client.RadioplayerClient;
 import dev.turtywurty.radioplayer.client.render.blockentity.RadioPlayerBlockEntityRenderer;
 import dev.turtywurty.radioplayer.client.render.blockentity.SpeakerBlockEntityRenderer;
-import dev.turtywurty.radioplayer.client.render.blockentity.SubwooferBlockEntityRenderer;
 import dev.turtywurty.radioplayer.client.render.globe.SpherePictureRenderState;
 import dev.turtywurty.radioplayer.client.render.globe.SpherePictureRenderer;
 import dev.turtywurty.radioplayer.client.render.globe.SphereRenderPipelines;
@@ -41,6 +40,5 @@ public class NeoForgeRadioplayerClient {
     public static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerBlockEntityRenderer(ModBlockEntities.radioPlayer.value(), RadioPlayerBlockEntityRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.speaker.value(), SpeakerBlockEntityRenderer::new);
-        event.registerBlockEntityRenderer(ModBlockEntities.subwoofer.value(), SubwooferBlockEntityRenderer::new);
     }
 }

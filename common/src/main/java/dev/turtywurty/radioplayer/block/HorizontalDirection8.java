@@ -24,6 +24,21 @@ public enum HorizontalDirection8 implements StringRepresentable {
         this.nearestCardinal = nearestCardinal;
     }
 
+    public static HorizontalDirection8 fromDirection(Direction direction) {
+        return switch (direction) {
+            case NORTH -> NORTH;
+            case EAST -> EAST;
+            case SOUTH -> SOUTH;
+            case WEST -> WEST;
+            default -> NORTH;
+        };
+    }
+
+    public static HorizontalDirection8 fromRotation(float rotation) {
+        int index = Math.floorMod(Math.round(rotation / 45.0F), values().length);
+        return values()[index];
+    }
+
     @Override
     public String getSerializedName() {
         return this.serializedName;
@@ -51,20 +66,5 @@ public enum HorizontalDirection8 implements StringRepresentable {
 
     public HorizontalDirection8 opposite() {
         return values()[(ordinal() + 4) % values().length];
-    }
-
-    public static HorizontalDirection8 fromDirection(Direction direction) {
-        return switch (direction) {
-            case NORTH -> NORTH;
-            case EAST -> EAST;
-            case SOUTH -> SOUTH;
-            case WEST -> WEST;
-            default -> NORTH;
-        };
-    }
-
-    public static HorizontalDirection8 fromRotation(float rotation) {
-        int index = Math.floorMod(Math.round(rotation / 45.0F), values().length);
-        return values()[index];
     }
 }

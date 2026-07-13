@@ -1,7 +1,5 @@
 package dev.turtywurty.radioplayer.sound;
 
-import dev.turtywurty.radioplayer.sound.process.SpeakerProcessorFactory;
-
 import java.util.List;
 
 public record SpeakerProfile(
@@ -10,6 +8,6 @@ public record SpeakerProfile(
         float distanceFalloff,
         float coneMinGain,
         float coneWidth,
-        List<SpeakerProcessorFactory> processors
+        List<SpeakerDriverProfile> drivers
 ) {
 }

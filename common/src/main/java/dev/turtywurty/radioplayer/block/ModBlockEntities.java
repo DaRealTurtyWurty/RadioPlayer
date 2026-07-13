@@ -10,12 +10,16 @@ public class ModBlockEntities {
     public static Holder<BlockEntityType<RadioPlayerBlockEntity>> radioPlayer;
     public static Holder<BlockEntityType<GlobeBlockEntity>> globe;
     public static Holder<BlockEntityType<SpeakerBlockEntity>> speaker;
-    public static Holder<BlockEntityType<SubwooferBlockEntity>> subwoofer;
 
     public static void initialize(BalmBlockEntityTypeRegistrar blockEntities) {
         radioPlayer = blockEntities.register("radio_payer", RadioPlayerBlockEntity::new, ModBlocks.radioPlayer).asHolder();
         globe = blockEntities.register("globe", GlobeBlockEntity::new, ModBlocks.globe).asHolder();
-        speaker = blockEntities.register("speaker", SpeakerBlockEntity::new, ModBlocks.speaker).asHolder();
-        subwoofer = blockEntities.register("subwoofer", SubwooferBlockEntity::new, ModBlocks.subwoofer).asHolder();
+        speaker = blockEntities.register("speaker", SpeakerBlockEntity::new,
+                ModBlocks.speaker,
+                ModBlocks.subwoofer,
+                ModBlocks.bassReflexSpeaker,
+                ModBlocks.hornSpeaker,
+                ModBlocks.bookshelfSpeaker,
+                ModBlocks.floorStandingSpeaker).asHolder();
     }
 }

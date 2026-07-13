@@ -18,53 +18,6 @@ import org.jspecify.annotations.NonNull;
 public class SpherePictureRenderer extends PictureInPictureRenderer<SpherePictureRenderState> {
     private static final int POINT_SEGMENTS = 32;
 
-    @Override
-    public @NonNull Class<SpherePictureRenderState> getRenderStateClass() {
-        return SpherePictureRenderState.class;
-    }
-
-    @Override
-    protected void renderToTexture(
-            @NonNull SpherePictureRenderState renderState,
-            @NonNull PoseStack poseStack,
-            @NonNull SubmitNodeCollector submitNodeCollector
-    ) {
-        poseStack.pushPose();
-        float viewportSize = Math.min(renderState.x1() - renderState.x0(), renderState.y1() - renderState.y0());
-        if (viewportSize <= 0.0F) {
-            poseStack.popPose();
-            return;
-        }
-
-        float zoomScale = renderState.sphereSize() / viewportSize;
-        poseStack.scale(zoomScale, zoomScale, 1.0F);
-        poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
-        poseStack.mulPose(new Quaternionf(
-                renderState.rotationX(),
-                renderState.rotationY(),
-                renderState.rotationZ(),
-                renderState.rotationW()
-        ));
-
-        float radius = viewportSize * 0.45F;
-        renderUvSphere(poseStack, submitNodeCollector, radius, 48, 32, 0xFFFFFFFF, LightCoordsUtil.FULL_BRIGHT);
-        for (GlobePoint point : renderState.points()) {
-            renderPoint(poseStack, submitNodeCollector, radius, point, renderState.pointSizeMultiplier());
-        }
-
-        poseStack.popPose();
-    }
-
-    @Override
-    protected @NonNull String getTextureLabel() {
-        return Radioplayer.id("sphere_preview").toString();
-    }
-
-    @Override
-    protected float getTranslateY(int height, int guiScale) {
-        return height / 2.0F;
-    }
-
     private static void renderUvSphere(
             PoseStack poseStack,
             SubmitNodeCollector submitNodeCollector,
@@ -177,6 +130,53 @@ public class SpherePictureRenderer extends PictureInPictureRenderer<SpherePictur
                 .setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(packedLight)
                 .setNormal(pose, vertex.nx(), vertex.ny(), vertex.nz());
+    }
+
+    @Override
+    public @NonNull Class<SpherePictureRenderState> getRenderStateClass() {
+        return SpherePictureRenderState.class;
+    }
+
+    @Override
+    protected void renderToTexture(
+            @NonNull SpherePictureRenderState renderState,
+            @NonNull PoseStack poseStack,
+            @NonNull SubmitNodeCollector submitNodeCollector
+    ) {
+        poseStack.pushPose();
+        float viewportSize = Math.min(renderState.x1() - renderState.x0(), renderState.y1() - renderState.y0());
+        if (viewportSize <= 0.0F) {
+            poseStack.popPose();
+            return;
+        }
+
+        float zoomScale = renderState.sphereSize() / viewportSize;
+        poseStack.scale(zoomScale, zoomScale, 1.0F);
+        poseStack.mulPose(Axis.YP.rotationDegrees(180.0F));
+        poseStack.mulPose(new Quaternionf(
+                renderState.rotationX(),
+                renderState.rotationY(),
+                renderState.rotationZ(),
+                renderState.rotationW()
+        ));
+
+        float radius = viewportSize * 0.45F;
+        renderUvSphere(poseStack, submitNodeCollector, radius, 48, 32, 0xFFFFFFFF, LightCoordsUtil.FULL_BRIGHT);
+        for (GlobePoint point : renderState.points()) {
+            renderPoint(poseStack, submitNodeCollector, radius, point, renderState.pointSizeMultiplier());
+        }
+
+        poseStack.popPose();
+    }
+
+    @Override
+    protected @NonNull String getTextureLabel() {
+        return Radioplayer.id("sphere_preview").toString();
+    }
+
+    @Override
+    protected float getTranslateY(int height, int guiScale) {
+        return height / 2.0F;
     }
 
     private record SphereVertex(

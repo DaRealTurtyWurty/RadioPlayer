@@ -17,6 +17,8 @@ import net.minecraft.client.data.models.model.ItemModelUtils;
 import net.minecraft.client.renderer.block.dispatch.Variant;
 import net.minecraft.core.Direction;
 import net.minecraft.util.random.WeightedList;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 
 import static net.minecraft.client.data.models.BlockModelGenerators.NOP;
 import static net.minecraft.client.data.models.BlockModelGenerators.Y_ROT_180;
@@ -65,9 +67,18 @@ public class ModModelProvider extends FabricModelProvider {
                         .select(HorizontalDirection8.WEST, Y_ROT_270)
                         .select(HorizontalDirection8.NORTH_WEST, NOP)));
 
+        speakerBlockState(blockModelGenerators, ModBlocks.bassReflexSpeaker.asBlock(), "bass_reflex_speaker");
+        speakerBlockState(blockModelGenerators, ModBlocks.hornSpeaker.asBlock(), "horn_speaker");
+        speakerBlockState(blockModelGenerators, ModBlocks.bookshelfSpeaker.asBlock(), "bookshelf_speaker");
+        speakerBlockState(blockModelGenerators, ModBlocks.floorStandingSpeaker.asBlock(), "floor_standing_speaker");
+        speakerBlockState(blockModelGenerators, ModBlocks.subwoofer.asBlock(), "subwoofer");
+    }
+
+    private static void speakerBlockState(BlockModelGenerators blockModelGenerators, Block block,
+                                          String modelName) {
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
-                ModBlocks.subwoofer.asBlock(),
-                new MultiVariant(WeightedList.of(new Variant(Radioplayer.id("block/subwoofer")))))
+                block,
+                new MultiVariant(WeightedList.of(new Variant(Radioplayer.id("block/" + modelName)))))
                 .with(PropertyDispatch.modify(SpeakerBlock.FACING)
                         .select(HorizontalDirection8.NORTH, NOP)
                         .select(HorizontalDirection8.NORTH_EAST, Y_ROT_90)
@@ -93,8 +104,17 @@ public class ModModelProvider extends FabricModelProvider {
                 ModBlocks.speaker.asBlock().asItem(),
                 ItemModelUtils.plainModel(Radioplayer.id("block/speaker")));
 
+        speakerItemModel(itemModelGenerators, ModBlocks.bassReflexSpeaker.asBlock().asItem(), "bass_reflex_speaker");
+        speakerItemModel(itemModelGenerators, ModBlocks.hornSpeaker.asBlock().asItem(), "horn_speaker");
+        speakerItemModel(itemModelGenerators, ModBlocks.bookshelfSpeaker.asBlock().asItem(), "bookshelf_speaker");
+        speakerItemModel(itemModelGenerators, ModBlocks.floorStandingSpeaker.asBlock().asItem(), "floor_standing_speaker");
+        speakerItemModel(itemModelGenerators, ModBlocks.subwoofer.asBlock().asItem(), "subwoofer");
+    }
+
+    private static void speakerItemModel(ItemModelGenerators itemModelGenerators, Item item,
+                                         String modelName) {
         itemModelGenerators.itemModelOutput.accept(
-                ModBlocks.subwoofer.asBlock().asItem(),
-                ItemModelUtils.plainModel(Radioplayer.id("block/subwoofer")));
+                item,
+                ItemModelUtils.plainModel(Radioplayer.id("block/" + modelName)));
     }
 }

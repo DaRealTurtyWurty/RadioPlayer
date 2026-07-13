@@ -14,13 +14,13 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import java.util.ArrayList;
 import java.util.List;
 
-public record UpdateRadioUrlMessage(BlockPos pos, String url, boolean playing, List<SavedRadioStation> savedStations) implements CustomPacketPayload {
+public record UpdateRadioUrlMessage(BlockPos pos, String url, boolean playing,
+                                    List<SavedRadioStation> savedStations) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<UpdateRadioUrlMessage> TYPE =
+            new CustomPacketPayload.Type<>(Radioplayer.id("update_radio_url"));
     private static final int MAX_URL_LENGTH = 2048;
     private static final int MAX_NICKNAME_LENGTH = 64;
     private static final int MAX_SAVED_STATIONS = 8;
-
-    public static final CustomPacketPayload.Type<UpdateRadioUrlMessage> TYPE =
-            new CustomPacketPayload.Type<>(Radioplayer.id("update_radio_url"));
     public static final StreamCodec<RegistryFriendlyByteBuf, UpdateRadioUrlMessage> CODEC = new StreamCodec<>() {
         @Override
         public UpdateRadioUrlMessage decode(RegistryFriendlyByteBuf input) {

@@ -9,11 +9,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.EntityBlock;
-import net.minecraft.world.level.block.Mirror;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -29,13 +25,25 @@ import org.jspecify.annotations.Nullable;
 import java.util.Map;
 
 public class RadioPlayerBlock extends Block implements EntityBlock {
+    public static final EnumProperty<HorizontalDirection8> FACING = EnumProperty.create("facing", HorizontalDirection8.class);
     private static final VoxelShape SHAPE = makeShape();
     private static final Map<Direction, VoxelShape> SHAPES = Shapes.rotateHorizontal(SHAPE);
 
-    public static final EnumProperty<HorizontalDirection8> FACING = EnumProperty.create("facing", HorizontalDirection8.class);
-
     public RadioPlayerBlock(Properties properties) {
         super(properties);
+    }
+
+    private static VoxelShape makeShape() {
+        VoxelShape shape = Shapes.empty();
+        shape = Shapes.join(shape, Shapes.box(0.125, 0, 0.3125, 0.875, 0.375, 0.6875), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.125, 0.3125, 0.6875, 0.25, 0.375, 0.75), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.125, 0.375, 0.6875, 0.1875, 0.75, 0.75), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.25, 0.375, 0.5, 0.75, 0.4375, 0.5625), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.25, 0.4375, 0.5, 0.3125, 0.5625, 0.5625), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.6875, 0.4375, 0.5, 0.75, 0.5625, 0.5625), BooleanOp.OR);
+        shape = Shapes.join(shape, Shapes.box(0.3125, 0.5625, 0.5, 0.6875, 0.625, 0.5625), BooleanOp.OR);
+
+        return shape;
     }
 
     @Override
@@ -81,18 +89,5 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
     protected void createBlockStateDefinition(StateDefinition.@NonNull Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(FACING);
-    }
-
-    private static VoxelShape makeShape() {
-        VoxelShape shape = Shapes.empty();
-        shape = Shapes.join(shape, Shapes.box(0.125, 0, 0.3125, 0.875, 0.375, 0.6875), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.125, 0.3125, 0.6875, 0.25, 0.375, 0.75), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.125, 0.375, 0.6875, 0.1875, 0.75, 0.75), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.25, 0.375, 0.5, 0.75, 0.4375, 0.5625), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.25, 0.4375, 0.5, 0.3125, 0.5625, 0.5625), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.6875, 0.4375, 0.5, 0.75, 0.5625, 0.5625), BooleanOp.OR);
-        shape = Shapes.join(shape, Shapes.box(0.3125, 0.5625, 0.5, 0.6875, 0.625, 0.5625), BooleanOp.OR);
-
-        return shape;
     }
 }

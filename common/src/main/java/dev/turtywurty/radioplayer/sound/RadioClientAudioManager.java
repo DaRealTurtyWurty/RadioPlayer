@@ -80,7 +80,7 @@ public final class RadioClientAudioManager {
 
             if (!(blockEntity instanceof SpeakerBlockEntity speaker)) {
                 BlockState blockState = minecraft.level.getBlockState(pos);
-                return !blockState.is(ModBlocks.speaker.asBlock()) && !blockState.is(ModBlocks.subwoofer.asBlock());
+                return !(blockState.getBlock() instanceof SpeakerBlock);
             }
 
             RadioPlayerBlockEntity sourceRadio = speaker.findSourceRadio();

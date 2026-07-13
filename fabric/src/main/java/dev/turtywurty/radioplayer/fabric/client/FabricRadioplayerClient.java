@@ -5,7 +5,6 @@ import dev.turtywurty.radioplayer.block.ModBlockEntities;
 import dev.turtywurty.radioplayer.client.RadioplayerClient;
 import dev.turtywurty.radioplayer.client.render.blockentity.RadioPlayerBlockEntityRenderer;
 import dev.turtywurty.radioplayer.client.render.blockentity.SpeakerBlockEntityRenderer;
-import dev.turtywurty.radioplayer.client.render.blockentity.SubwooferBlockEntityRenderer;
 import dev.turtywurty.radioplayer.client.render.globe.SpherePictureRenderer;
 import dev.turtywurty.radioplayer.client.render.globe.SphereRenderPipelines;
 import net.blay09.mods.balm.client.BalmClient;
@@ -22,7 +21,6 @@ public class FabricRadioplayerClient implements ClientModInitializer {
         PictureInPictureRendererRegistry.register(_ -> new SpherePictureRenderer());
         BlockEntityRenderers.register(ModBlockEntities.radioPlayer.value(), RadioPlayerBlockEntityRenderer::new);
         BlockEntityRenderers.register(ModBlockEntities.speaker.value(), SpeakerBlockEntityRenderer::new);
-        BlockEntityRenderers.register(ModBlockEntities.subwoofer.value(), SubwooferBlockEntityRenderer::new);
         BalmClient.initializeMod(Radioplayer.MOD_ID, FabricLoadContext.INSTANCE, RadioplayerClient::initialize);
     }
 }

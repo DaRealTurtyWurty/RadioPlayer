@@ -21,7 +21,7 @@ public class RadioMixerAudioStream implements AudioStream {
     private static final int MAX_OUTPUT_BYTES = 4_096;
     private static final int OUTPUT_BUFFER_COUNT = 4;
 
-    private final Map<EmitterKey, List<SpeakerProcessor>> processorsByEmitter = new HashMap<>();
+    private final Map<EmitterKey, List<SpeakerDriverRuntime>> driversByEmitter = new HashMap<>();
 
     private final RadioAudioSource source;
     private final AudioStream decodedStream;
@@ -37,6 +37,59 @@ public class RadioMixerAudioStream implements AudioStream {
         this.outputFormat = isMixableFormat(this.inputFormat) ?
                 new AudioFormat(this.inputFormat.getSampleRate(), 16, 2, true, false) :
                 this.inputFormat;
+    }
+
+    private static boolean isMixableFormat(AudioFormat format) {
+        return format.getSampleSizeInBits() == 16 &&
+                (format.getChannels() == 1 || format.getChannels() == 2) &&
+                !format.isBigEndian();
+    }
+
+    private static SpatialGain calculateGain(RadioAudioEmitter emitter, RadioAudioSource source) {
+        Vec3 listenerPos = source.getListenerPos();
+        Vec3 listenerRight = source.getListenerRight();
+
+        Vec3 emitterCenter = Vec3.atCenterOf(emitter.pos());
+        Vec3 listenerToEmitter = emitterCenter.subtract(listenerPos);
+
+        double distance = listenerToEmitter.length();
+        if (distance <= 0.001D)
+            return new SpatialGain(emitter.gain(), emitter.gain());
+
+        Vec3 direction = listenerToEmitter.normalize();
+
+        SpeakerProfile profile = emitter.type().profile();
+        if (distance > profile.maxRange())
+            return new SpatialGain(0.0f, 0.0f);
+
+        float attenuation = (float) (1.0D / (1.0D + distance * distance * profile.distanceFalloff()));
+        float pan = (float) direction.dot(listenerRight);
+        pan = Math.clamp(pan, -1.0f, 1.0f);
+
+        float leftPan = Mth.sqrt((1.0f - pan) / 2.0f);
+        float rightPan = Mth.sqrt((1.0f + pan) / 2.0f);
+
+        float cone = calculateConeGain(emitter, listenerPos, profile);
+
+        float gain = emitter.gain() * profile.gain() * attenuation * cone;
+        return new SpatialGain(gain * leftPan, gain * rightPan);
+    }
+
+    private static float calculateConeGain(RadioAudioEmitter emitter, Vec3 listenerPos, SpeakerProfile profile) {
+        Vec3 emitterCenter = Vec3.atCenterOf(emitter.pos());
+        Vec3 speakerForward = Vec3.atLowerCornerOf(emitter.getFacingNormal()).normalize();
+        Vec3 speakerToListener = listenerPos.subtract(emitterCenter).normalize();
+
+        float dot = (float) speakerForward.dot(speakerToListener);
+        return Math.clamp((dot + profile.coneWidth()) / (1.0F + profile.coneWidth()), profile.coneMinGain(), 1.0F);
+    }
+
+    private static short floatToShort(float sample) {
+        return (short) (Mth.clamp(sample, -1.0F, 1.0F) * Short.MAX_VALUE);
+    }
+
+    private static float softClip(float sample) {
+        return sample / (1.0F + Math.abs(sample));
     }
 
     @Override
@@ -107,26 +160,20 @@ public class RadioMixerAudioStream implements AudioStream {
                 emitter
         );
 
-        float processed = sample;
-        for (SpeakerProcessor processor : getProcessorsFor(emitter)) {
-            processed = processor.process(processed, context);
+        float processed = 0.0F;
+        for (SpeakerDriverRuntime driver : getDriversFor(emitter)) {
+            processed += driver.process(sample, context);
         }
 
         return processed;
     }
 
-    private List<SpeakerProcessor> getProcessorsFor(RadioAudioEmitter emitter) {
-        return this.processorsByEmitter.computeIfAbsent(EmitterKey.from(emitter), _ ->
-                emitter.type().profile().processors().stream()
-                        .map(SpeakerProcessorFactory::create)
+    private List<SpeakerDriverRuntime> getDriversFor(RadioAudioEmitter emitter) {
+        return this.driversByEmitter.computeIfAbsent(EmitterKey.from(emitter), _ ->
+                emitter.type().profile().drivers().stream()
+                        .map(SpeakerDriverRuntime::create)
                         .toList()
         );
-    }
-
-    private static boolean isMixableFormat(AudioFormat format) {
-        return format.getSampleSizeInBits() == 16 &&
-                (format.getChannels() == 1 || format.getChannels() == 2) &&
-                !format.isBigEndian();
     }
 
     private int requestedOutputSize(int requestedSize) {
@@ -152,59 +199,31 @@ public class RadioMixerAudioStream implements AudioStream {
         return buffer;
     }
 
-    private static SpatialGain calculateGain(RadioAudioEmitter emitter, RadioAudioSource source) {
-        Vec3 listenerPos = source.getListenerPos();
-        Vec3 listenerRight = source.getListenerRight();
-
-        Vec3 emitterCenter = Vec3.atCenterOf(emitter.pos());
-        Vec3 listenerToEmitter = emitterCenter.subtract(listenerPos);
-
-        double distance = listenerToEmitter.length();
-        if (distance <= 0.001D)
-            return new SpatialGain(emitter.gain(), emitter.gain());
-
-        Vec3 direction = listenerToEmitter.normalize();
-
-        SpeakerProfile profile = emitter.type().profile();
-        if (distance > profile.maxRange())
-            return new SpatialGain(0.0f, 0.0f);
-
-        float attenuation = (float) (1.0D / (1.0D + distance * distance * profile.distanceFalloff()));
-        float pan = (float) direction.dot(listenerRight);
-        pan = Math.clamp(pan, -1.0f, 1.0f);
-
-        float leftPan = Mth.sqrt((1.0f - pan) / 2.0f);
-        float rightPan = Mth.sqrt((1.0f + pan) / 2.0f);
-
-        float cone = calculateConeGain(emitter, listenerPos, profile);
-
-        float gain = emitter.gain() * profile.gain() * attenuation * cone;
-        return new SpatialGain(gain * leftPan, gain * rightPan);
-    }
-
-    private static float calculateConeGain(RadioAudioEmitter emitter, Vec3 listenerPos, SpeakerProfile profile) {
-        Vec3 emitterCenter = Vec3.atCenterOf(emitter.pos());
-        Vec3 speakerForward = Vec3.atLowerCornerOf(emitter.getFacingNormal()).normalize();
-        Vec3 speakerToListener = listenerPos.subtract(emitterCenter).normalize();
-
-        float dot = (float) speakerForward.dot(speakerToListener);
-        return Math.clamp((dot + profile.coneWidth()) / (1.0F + profile.coneWidth()), profile.coneMinGain(), 1.0F);
-    }
-
-    private static short floatToShort(float sample) {
-        return (short) (Mth.clamp(sample, -1.0F, 1.0F) * Short.MAX_VALUE);
-    }
-
-    private static float softClip(float sample) {
-        return sample / (1.0F + Math.abs(sample));
-    }
-
     private record SpatialGain(float left, float right) {
     }
 
     private record EmitterKey(BlockPos pos, SpeakerType type) {
         private static EmitterKey from(RadioAudioEmitter emitter) {
             return new EmitterKey(emitter.pos(), emitter.type());
+        }
+    }
+
+    private record SpeakerDriverRuntime(float gain, List<SpeakerProcessor> processors) {
+        private static SpeakerDriverRuntime create(SpeakerDriverProfile profile) {
+            return new SpeakerDriverRuntime(
+                    profile.gain(),
+                    profile.processors().stream()
+                            .map(SpeakerProcessorFactory::create)
+                            .toList());
+        }
+
+        private float process(float sample, SpeakerProcessingContext context) {
+            float processed = sample * this.gain;
+            for (SpeakerProcessor processor : this.processors) {
+                processed = processor.process(processed, context);
+            }
+
+            return processed;
         }
     }
 }

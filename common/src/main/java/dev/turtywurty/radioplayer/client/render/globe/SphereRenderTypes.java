@@ -15,10 +15,10 @@ public final class SphereRenderTypes {
                     .createRenderSetup()
     );
 
-    public static RenderType earthNormalMapped() {
-        return EARTH_NORMAL_MAPPED;
+    private SphereRenderTypes() {
     }
 
-    private SphereRenderTypes() {
+    public static RenderType earthNormalMapped() {
+        return EARTH_NORMAL_MAPPED;
     }
 }

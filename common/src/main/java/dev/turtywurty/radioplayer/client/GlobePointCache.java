@@ -384,6 +384,16 @@ public final class GlobePointCache {
                     radiusMeters);
         }
 
+        private static double distanceMeters(double latitudeA, double longitudeA, double latitudeB, double longitudeB) {
+            double latA = Math.toRadians(latitudeA);
+            double latB = Math.toRadians(latitudeB);
+            double deltaLat = Math.toRadians(latitudeB - latitudeA);
+            double deltaLon = Math.toRadians(longitudeB - longitudeA);
+            double halfChordLength = Math.sin(deltaLat * 0.5D) * Math.sin(deltaLat * 0.5D) +
+                    Math.cos(latA) * Math.cos(latB) * Math.sin(deltaLon * 0.5D) * Math.sin(deltaLon * 0.5D);
+            return 6_371_000.0D * 2.0D * Math.atan2(Math.sqrt(halfChordLength), Math.sqrt(1.0D - halfChordLength));
+        }
+
         private boolean contains(Station station) {
             return hasValidCoordinates(station) &&
                     contains(station.getGeoLatitude(), station.getGeoLongitude());
@@ -402,16 +412,6 @@ public final class GlobePointCache {
 
         private String key() {
             return this.latitudeCell + ":" + this.longitudeCell + ":" + this.longitudeCellCount;
-        }
-
-        private static double distanceMeters(double latitudeA, double longitudeA, double latitudeB, double longitudeB) {
-            double latA = Math.toRadians(latitudeA);
-            double latB = Math.toRadians(latitudeB);
-            double deltaLat = Math.toRadians(latitudeB - latitudeA);
-            double deltaLon = Math.toRadians(longitudeB - longitudeA);
-            double halfChordLength = Math.sin(deltaLat * 0.5D) * Math.sin(deltaLat * 0.5D) +
-                    Math.cos(latA) * Math.cos(latB) * Math.sin(deltaLon * 0.5D) * Math.sin(deltaLon * 0.5D);
-            return 6_371_000.0D * 2.0D * Math.atan2(Math.sqrt(halfChordLength), Math.sqrt(1.0D - halfChordLength));
         }
     }
 }

@@ -1,5 +1,9 @@
 {
+  "block.radioplayer.bass_reflex_speaker": "Bass Reflex Speaker",
+  "block.radioplayer.bookshelf_speaker": "Bookshelf Speaker",
+  "block.radioplayer.floor_standing_speaker": "Floor-Standing Speaker",
   "block.radioplayer.globe": "Globe",
+  "block.radioplayer.horn_speaker": "Horn Speaker",
   "block.radioplayer.radio_player": "Radio Player",
   "block.radioplayer.speaker": "Speaker",
   "block.radioplayer.subwoofer": "Subwoofer",
