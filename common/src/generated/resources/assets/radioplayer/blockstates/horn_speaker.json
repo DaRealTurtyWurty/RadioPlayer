@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "radioplayer:block/horn_speaker",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "radioplayer:block/horn_speaker"
+    },
+    "facing=north_east": {
+      "model": "radioplayer:block/horn_speaker",
+      "y": 90
+    },
+    "facing=north_west": {
+      "model": "radioplayer:block/horn_speaker"
+    },
+    "facing=south": {
+      "model": "radioplayer:block/horn_speaker",
+      "y": 180
+    },
+    "facing=south_east": {
+      "model": "radioplayer:block/horn_speaker",
+      "y": 180
+    },
+    "facing=south_west": {
+      "model": "radioplayer:block/horn_speaker",
+      "y": 270
+    },
+    "facing=west": {
+      "model": "radioplayer:block/horn_speaker",
+      "y": 270
+    }
+  }
+}

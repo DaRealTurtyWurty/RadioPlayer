@@ -1,11 +1,11 @@
 {
   "parent": "minecraft:recipes/root",
   "criteria": {
-    "has_note_block": {
+    "has_map": {
       "conditions": {
         "items": [
           {
-            "items": "minecraft:note_block"
+            "items": "minecraft:map"
           }
         ]
       },
@@ -21,7 +21,7 @@
   "requirements": [
     [
       "has_the_recipe",
-      "has_note_block"
+      "has_map"
     ]
   ],
   "rewards": {

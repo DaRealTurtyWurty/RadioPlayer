@@ -14,6 +14,10 @@ public class GlobeBlockEntity extends BlockEntity {
         super(ModBlockEntities.globe.value(), pos, state);
     }
 
+    public @Nullable BlockPos getConnectedRadioPlayerPos() {
+        return connectedRadioPlayerPos;
+    }
+
     public void setConnectedRadioPlayerPos(@Nullable BlockPos pos) {
         this.connectedRadioPlayerPos = pos;
         setChanged();
@@ -21,9 +25,5 @@ public class GlobeBlockEntity extends BlockEntity {
         if (level != null) {
             level.sendBlockUpdated(this.worldPosition, getBlockState(), getBlockState(), Block.UPDATE_ALL);
         }
-    }
-
-    public @Nullable BlockPos getConnectedRadioPlayerPos() {
-        return connectedRadioPlayerPos;
     }
 }

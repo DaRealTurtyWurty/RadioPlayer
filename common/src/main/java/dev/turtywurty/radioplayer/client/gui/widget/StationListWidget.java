@@ -66,6 +66,27 @@ public class StationListWidget extends AbstractWidget {
         return Math.max(HEADER_HEIGHT + MIN_LIST_HEIGHT + PADDING, availableHeight);
     }
 
+    private static int searchTopOffset() {
+        return PADDING + 20;
+    }
+
+    private static Component pointMessage(GlobePoint point) {
+        return Component.literal(stationLabel(point));
+    }
+
+    private static String stationLabel(GlobePoint point) {
+        if (!(point instanceof RadioStationPoint radioStationPoint))
+            return "%.4f, %.4f".formatted(point.getLatitude(), point.getLongitude());
+
+        if (radioStationPoint.getStationName() != null && !radioStationPoint.getStationName().isBlank())
+            return radioStationPoint.getStationName();
+
+        if (radioStationPoint.getStationUrl() != null && !radioStationPoint.getStationUrl().isBlank())
+            return radioStationPoint.getStationUrl();
+
+        return "%.4f, %.4f".formatted(point.getLatitude(), point.getLongitude());
+    }
+
     public void setSearchQuery(String query) {
         this.searchField.setValue(query);
     }
@@ -234,32 +255,11 @@ public class StationListWidget extends AbstractWidget {
         return getWidth() - PADDING * 2 - SCROLLBAR_WIDTH - SCROLLBAR_GAP;
     }
 
-    private static int searchTopOffset() {
-        return PADDING + 20;
-    }
-
     private int listTop() {
         return getY() + searchTopOffset() + SEARCH_BOX_HEIGHT + SEARCH_BOX_GAP;
     }
 
     private int listHeight() {
         return Math.max(ROW_HEIGHT, getY() + getHeight() - PADDING - listTop());
-    }
-
-    private static Component pointMessage(GlobePoint point) {
-        return Component.literal(stationLabel(point));
-    }
-
-    private static String stationLabel(GlobePoint point) {
-        if (!(point instanceof RadioStationPoint radioStationPoint))
-            return "%.4f, %.4f".formatted(point.getLatitude(), point.getLongitude());
-
-        if (radioStationPoint.getStationName() != null && !radioStationPoint.getStationName().isBlank())
-            return radioStationPoint.getStationName();
-
-        if (radioStationPoint.getStationUrl() != null && !radioStationPoint.getStationUrl().isBlank())
-            return radioStationPoint.getStationUrl();
-
-        return "%.4f, %.4f".formatted(point.getLatitude(), point.getLongitude());
     }
 }

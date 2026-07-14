@@ -206,6 +206,16 @@ public class LavaPlayerAudioStream implements AudioStream {
         }
     }
 
+    private static void writeSilence(ByteBuffer output) {
+        while (output.hasRemaining()) {
+            output.put((byte) 0);
+        }
+    }
+
+    private static AudioFormat createAudioFormat(AudioDataFormat format) {
+        return new AudioFormat(format.sampleRate, 16, format.channelCount, true, false);
+    }
+
     @Override
     public @NonNull AudioFormat getFormat() {
         return this.format;
@@ -244,16 +254,6 @@ public class LavaPlayerAudioStream implements AudioStream {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while waiting for audio data", exception);
         }
-    }
-
-    private static void writeSilence(ByteBuffer output) {
-        while (output.hasRemaining()) {
-            output.put((byte) 0);
-        }
-    }
-
-    private static AudioFormat createAudioFormat(AudioDataFormat format) {
-        return new AudioFormat(format.sampleRate, 16, format.channelCount, true, false);
     }
 
     private void copyPendingFrame(ByteBuffer output) {

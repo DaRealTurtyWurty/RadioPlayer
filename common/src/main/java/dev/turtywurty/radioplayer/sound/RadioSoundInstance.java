@@ -33,7 +33,7 @@ public class RadioSoundInstance implements TickableSoundInstance {
         this.radioPos = radioPos;
         this.url = url;
 
-        this.identifier = Radioplayer.id(STREAM_PATH + Integer.toHexString(url.hashCode()));
+        this.identifier = Radioplayer.id(STREAM_PATH + Long.toHexString(radioPos.asLong()) + "/" + Integer.toHexString(url.hashCode()));
         this.sound = new Sound(
                 this.identifier,
                 ConstantFloat.of(1.0F),
@@ -117,7 +117,7 @@ public class RadioSoundInstance implements TickableSoundInstance {
 
     @Override
     public boolean isRelative() {
-        return false;
+        return true;
     }
 
     @Override
@@ -137,22 +137,22 @@ public class RadioSoundInstance implements TickableSoundInstance {
 
     @Override
     public double getX() {
-        return this.radioPos.getX() + 0.5;
+        return 0;
     }
 
     @Override
     public double getY() {
-        return this.radioPos.getY() + 0.5;
+        return 0;
     }
 
     @Override
     public double getZ() {
-        return this.radioPos.getZ() + 0.5;
+        return 0;
     }
 
     @Override
     public @NonNull Attenuation getAttenuation() {
-        return Attenuation.LINEAR;
+        return Attenuation.NONE;
     }
 
     @Override
@@ -163,5 +163,9 @@ public class RadioSoundInstance implements TickableSoundInstance {
     @Override
     public boolean canPlaySound() {
         return !this.stopped && !this.url.isBlank();
+    }
+
+    public Identifier getSoundPath() {
+        return this.sound.getPath();
     }
 }

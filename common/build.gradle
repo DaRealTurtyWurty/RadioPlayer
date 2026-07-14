@@ -1,7 +1,6 @@
-import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
-import java.net.URLClassLoader
+import java.security.MessageDigest
 import java.util.zip.ZipFile
 
 plugins {

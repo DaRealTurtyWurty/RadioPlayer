@@ -2,15 +2,15 @@
   "type": "minecraft:crafting_shaped",
   "category": "redstone",
   "key": {
+    "G": "minecraft:glass",
     "I": "minecraft:iron_ingot",
-    "N": "minecraft:note_block",
-    "P": "#minecraft:planks",
-    "R": "minecraft:redstone"
+    "M": "minecraft:map",
+    "P": "#minecraft:planks"
   },
   "pattern": [
-    "IPI",
-    "RNR",
-    "IPI"
+    "GGG",
+    "GMG",
+    "PIP"
   ],
   "result": {
     "id": "radioplayer:globe"

@@ -1,6 +1,12 @@
 {
   "values": [
     "radioplayer:radio_player",
-    "radioplayer:globe"
+    "radioplayer:globe",
+    "radioplayer:speaker",
+    "radioplayer:bass_reflex_speaker",
+    "radioplayer:horn_speaker",
+    "radioplayer:bookshelf_speaker",
+    "radioplayer:floor_standing_speaker",
+    "radioplayer:subwoofer"
   ]
 }

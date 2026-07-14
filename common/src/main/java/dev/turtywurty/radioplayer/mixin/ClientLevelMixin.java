@@ -1,5 +1,6 @@
 package dev.turtywurty.radioplayer.mixin;
 
+import dev.turtywurty.radioplayer.block.SpeakerBlockEntity;
 import dev.turtywurty.radioplayer.block.entity.RadioPlayerBlockEntity;
 import dev.turtywurty.radioplayer.sound.RadioClientAudioManager;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -15,6 +16,8 @@ public class ClientLevelMixin {
     private void radioplayer$onBlockEntityAdded(BlockEntity blockEntity, CallbackInfo ci) {
         if (blockEntity instanceof RadioPlayerBlockEntity) {
             RadioClientAudioManager.registerRadio(blockEntity.getBlockPos());
+        } else if (blockEntity instanceof SpeakerBlockEntity) {
+            RadioClientAudioManager.registerSpeaker(blockEntity.getBlockPos());
         }
     }
 }

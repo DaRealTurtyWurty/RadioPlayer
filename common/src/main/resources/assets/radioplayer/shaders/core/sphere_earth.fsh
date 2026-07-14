@@ -28,8 +28,8 @@ mat3 cotangentFrame(vec3 normal, vec3 position, vec2 uv) {
 
     if (abs(determinant) < 1.0e-8) {
         vec3 referenceAxis = abs(normal.y) < 0.999
-                ? vec3(0.0, 1.0, 0.0)
-                : vec3(1.0, 0.0, 0.0);
+        ? vec3(0.0, 1.0, 0.0)
+        : vec3(1.0, 0.0, 0.0);
         vec3 tangent = normalize(cross(referenceAxis, normal));
         return mat3(tangent, normalize(cross(normal, tangent)), normal);
     }

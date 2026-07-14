@@ -25,6 +25,19 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class RadioPlayerScreen extends Screen {
+    public static final Component TITLE = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player");
+    public static final Component URL_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.url");
+    public static final Component NICKNAME_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.nickname");
+    public static final Component STATIONS_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.stations");
+    public static final Component EMPTY_STATIONS_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.stations.empty");
+    public static final Component APPLY_URL_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.url.apply");
+    public static final Component ADD_STATION_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.station.add");
+    public static final Component EDIT_STATION_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.station.edit");
+    public static final Component REMOVE_STATION_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.station.remove");
+    public static final Component PLAY_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.play");
+    public static final Component STOP_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.stop");
+    public static final Component INVALID_URL_TITLE = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.invalid_url");
+    public static final Component INVALID_URL_DESCRIPTION = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.invalid_url.description");
     private static final Identifier CHECKMARK_SPRITE = Identifier.withDefaultNamespace("icon/checkmark");
     private static final Identifier EDIT_SPRITE = Radioplayer.id("radio/pencil");
     private static final Identifier DELETE_SPRITE = Radioplayer.id("radio/delete");
@@ -43,25 +56,10 @@ public class RadioPlayerScreen extends Screen {
     private static final int STATION_SCROLLBAR_WIDTH = 2;
     private static final int STATION_SCROLLBAR_GAP = 4;
     private static final SystemToast.SystemToastId INVALID_URL_TOAST_ID = new SystemToast.SystemToastId();
-
-    public static final Component TITLE = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player");
-    public static final Component URL_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.url");
-    public static final Component NICKNAME_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.nickname");
-    public static final Component STATIONS_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.stations");
-    public static final Component EMPTY_STATIONS_LABEL = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.stations.empty");
-    public static final Component APPLY_URL_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.url.apply");
-    public static final Component ADD_STATION_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.station.add");
-    public static final Component EDIT_STATION_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.station.edit");
-    public static final Component REMOVE_STATION_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.station.remove");
-    public static final Component PLAY_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.play");
-    public static final Component STOP_BUTTON = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.stop");
-    public static final Component INVALID_URL_TITLE = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.invalid_url");
-    public static final Component INVALID_URL_DESCRIPTION = Component.translatable("screen." + Radioplayer.MOD_ID + ".radio_player.invalid_url.description");
-
     private final BlockPos pos;
+    private final List<SavedRadioStation> savedStations;
     private String currentUrl;
     private boolean playing;
-    private final List<SavedRadioStation> savedStations;
     private EditBox urlField;
     private EditBox nicknameField;
     private Button playPauseButton;
@@ -77,6 +75,45 @@ public class RadioPlayerScreen extends Screen {
         this.currentUrl = initialUrl;
         this.playing = playing;
         this.savedStations = new ArrayList<>(sanitizeSavedStations(savedStations));
+    }
+
+    private static boolean isValidUrlFormat(String url) {
+        try {
+            var uri = new URI(url);
+            String scheme = uri.getScheme();
+            return uri.getHost() != null && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme));
+        } catch (URISyntaxException exception) {
+            return false;
+        }
+    }
+
+    private static void showInvalidUrlToast() {
+        SystemToast.addOrUpdate(
+                Minecraft.getInstance().gui.toastManager(),
+                INVALID_URL_TOAST_ID,
+                INVALID_URL_TITLE,
+                INVALID_URL_DESCRIPTION);
+    }
+
+    private static List<SavedRadioStation> sanitizeSavedStations(List<SavedRadioStation> stations) {
+        List<SavedRadioStation> sanitizedStations = new ArrayList<>();
+        if (stations == null)
+            return sanitizedStations;
+
+        for (SavedRadioStation station : stations) {
+            if (station == null)
+                continue;
+
+            SavedRadioStation sanitizedStation = SavedRadioStation.of(station.nickname(), station.url());
+            if (!sanitizedStation.url().isBlank() && sanitizedStations.stream().noneMatch(savedStation -> savedStation.url().equals(sanitizedStation.url()))) {
+                sanitizedStations.add(sanitizedStation);
+            }
+
+            if (sanitizedStations.size() >= MAX_SAVED_STATIONS)
+                break;
+        }
+
+        return sanitizedStations;
     }
 
     @Override
@@ -351,24 +388,6 @@ public class RadioPlayerScreen extends Screen {
                 }));
     }
 
-    private static boolean isValidUrlFormat(String url) {
-        try {
-            var uri = new URI(url);
-            String scheme = uri.getScheme();
-            return uri.getHost() != null && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme));
-        } catch (URISyntaxException exception) {
-            return false;
-        }
-    }
-
-    private static void showInvalidUrlToast() {
-        SystemToast.addOrUpdate(
-                Minecraft.getInstance().gui.toastManager(),
-                INVALID_URL_TOAST_ID,
-                INVALID_URL_TITLE,
-                INVALID_URL_DESCRIPTION);
-    }
-
     private int indexOfStation(String url) {
         for (int index = 0; index < this.savedStations.size(); index++) {
             if (this.savedStations.get(index).url().equals(url))
@@ -425,27 +444,6 @@ public class RadioPlayerScreen extends Screen {
         }
 
         clampFirstVisibleStationIndex();
-    }
-
-    private static List<SavedRadioStation> sanitizeSavedStations(List<SavedRadioStation> stations) {
-        List<SavedRadioStation> sanitizedStations = new ArrayList<>();
-        if (stations == null)
-            return sanitizedStations;
-
-        for (SavedRadioStation station : stations) {
-            if (station == null)
-                continue;
-
-            SavedRadioStation sanitizedStation = SavedRadioStation.of(station.nickname(), station.url());
-            if (!sanitizedStation.url().isBlank() && sanitizedStations.stream().noneMatch(savedStation -> savedStation.url().equals(sanitizedStation.url()))) {
-                sanitizedStations.add(sanitizedStation);
-            }
-
-            if (sanitizedStations.size() >= MAX_SAVED_STATIONS)
-                break;
-        }
-
-        return sanitizedStations;
     }
 
     @Override

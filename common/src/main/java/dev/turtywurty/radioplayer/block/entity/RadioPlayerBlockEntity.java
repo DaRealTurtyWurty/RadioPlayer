@@ -1,8 +1,8 @@
 package dev.turtywurty.radioplayer.block.entity;
 
-import dev.turtywurty.radioplayer.block.ModBlockEntities;
-import dev.turtywurty.radioplayer.SavedRadioStation;
 import com.mojang.serialization.Codec;
+import dev.turtywurty.radioplayer.SavedRadioStation;
+import dev.turtywurty.radioplayer.block.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -29,6 +29,45 @@ public class RadioPlayerBlockEntity extends BlockEntity {
 
     public RadioPlayerBlockEntity(BlockPos worldPosition, BlockState blockState) {
         super(ModBlockEntities.radioPlayer.value(), worldPosition, blockState);
+    }
+
+    private static List<SavedRadioStation> loadSavedStations(ValueInput input) {
+        ValueInput.ValueInputList stationInputs = input.childrenListOrEmpty("saved_stations_v2");
+        if (!stationInputs.isEmpty()) {
+            List<SavedRadioStation> stations = new ArrayList<>();
+            for (ValueInput stationInput : stationInputs) {
+                stations.add(SavedRadioStation.of(
+                        stationInput.getStringOr("nickname", ""),
+                        stationInput.getStringOr("url", "")));
+            }
+
+            return sanitizeSavedStations(stations);
+        }
+
+        return sanitizeSavedStations(input.listOrEmpty("saved_stations", Codec.STRING).stream()
+                .map(url -> SavedRadioStation.of("", url))
+                .toList());
+    }
+
+    private static List<SavedRadioStation> sanitizeSavedStations(List<SavedRadioStation> stations) {
+        List<SavedRadioStation> sanitizedStations = new ArrayList<>();
+        if (stations == null)
+            return List.of();
+
+        for (SavedRadioStation station : stations) {
+            if (station == null)
+                continue;
+
+            SavedRadioStation sanitizedStation = SavedRadioStation.of(station.nickname(), station.url());
+            if (!sanitizedStation.url().isBlank() && sanitizedStations.stream().noneMatch(savedStation -> savedStation.url().equals(sanitizedStation.url()))) {
+                sanitizedStations.add(sanitizedStation);
+            }
+
+            if (sanitizedStations.size() >= MAX_SAVED_STATIONS)
+                break;
+        }
+
+        return List.copyOf(sanitizedStations);
     }
 
     @Override
@@ -59,7 +98,7 @@ public class RadioPlayerBlockEntity extends BlockEntity {
     }
 
     @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
+    public @NonNull CompoundTag getUpdateTag(HolderLookup.@NonNull Provider registries) {
         return saveCustomOnly(registries);
     }
 
@@ -101,48 +140,6 @@ public class RadioPlayerBlockEntity extends BlockEntity {
     public void setSavedStations(List<SavedRadioStation> savedStations) {
         this.savedStations = sanitizeSavedStations(savedStations);
         update();
-    }
-
-    private static List<SavedRadioStation> loadSavedStations(ValueInput input) {
-        ValueInput.ValueInputList stationInputs = input.childrenListOrEmpty("saved_stations_v2");
-        if (!stationInputs.isEmpty()) {
-            List<SavedRadioStation> stations = new ArrayList<>();
-            for (ValueInput stationInput : stationInputs) {
-                stations.add(SavedRadioStation.of(
-                        stationInput.getStringOr("nickname", ""),
-                        stationInput.getStringOr("url", "")));
-            }
-
-            return sanitizeSavedStations(stations);
-        }
-
-        return sanitizeSavedStations(input.listOrEmpty("saved_stations", Codec.STRING).stream()
-                .map(url -> SavedRadioStation.of("", url))
-                .toList());
-    }
-
-    private static List<SavedRadioStation> sanitizeSavedStations(List<SavedRadioStation> stations) {
-        List<SavedRadioStation> sanitizedStations = new ArrayList<>();
-        if (stations == null) {
-            return List.of();
-        }
-
-        for (SavedRadioStation station : stations) {
-            if (station == null) {
-                continue;
-            }
-
-            SavedRadioStation sanitizedStation = SavedRadioStation.of(station.nickname(), station.url());
-            if (!sanitizedStation.url().isBlank() && sanitizedStations.stream().noneMatch(savedStation -> savedStation.url().equals(sanitizedStation.url()))) {
-                sanitizedStations.add(sanitizedStation);
-            }
-
-            if (sanitizedStations.size() >= MAX_SAVED_STATIONS) {
-                break;
-            }
-        }
-
-        return List.copyOf(sanitizedStations);
     }
 
     private void update() {

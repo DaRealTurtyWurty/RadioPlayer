@@ -8,6 +8,7 @@ import java.util.List;
 
 public class RadioplayerClientAPI {
     private static final InternalClientMethods __internalMethods;
+
     static {
         try {
             __internalMethods = (InternalClientMethods) Class.forName("dev.turtywurty.radioplayer.client.InternalClientMethodsImpl").getConstructor().newInstance();
