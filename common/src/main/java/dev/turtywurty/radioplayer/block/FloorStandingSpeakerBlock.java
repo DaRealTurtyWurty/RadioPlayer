@@ -47,7 +47,7 @@ public class FloorStandingSpeakerBlock extends SpeakerBlock {
     protected @NonNull VoxelShape getShape(BlockState state, @NonNull BlockGetter level, @NonNull BlockPos pos, @NonNull CollisionContext context) {
         VoxelShape shape = super.getShape(state, level, pos, context);
         return state.getValue(HALF) == DoubleBlockHalf.LOWER
-                ? shape.move(0, -1, 0)
+                ? shape.move(0, 1, 0)
                 : shape;
     }
 
