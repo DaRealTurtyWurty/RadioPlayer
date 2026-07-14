@@ -16,7 +16,6 @@ public class ModBlocks {
     private static final VoxelShape BASS_REFLEX_SHAPE = Shapes.box(0.0625, 0, 0.0625, 0.9375, 1, 0.9375);
     private static final VoxelShape HORN_SHAPE = Shapes.box(0.0, 0.125, 0.1875, 1.0, 0.875, 0.8125);
     private static final VoxelShape BOOKSHELF_SHAPE = Shapes.box(0.125, 0.0625, 0.125, 0.875, 0.8125, 0.875);
-    private static final VoxelShape FLOOR_STANDING_SHAPE = Shapes.box(0.1875, 0, 0.125, 0.8125, 1, 0.875);
 
     public static DeferredBlock radioPlayer;
     public static DeferredBlock globe;
@@ -49,16 +48,19 @@ public class ModBlocks {
                 .asDeferredBlock();
 
         speaker = registerSpeaker(blocks, "speaker", SpeakerType.FULL_RANGE, SPEAKER_SHAPE);
-
         subwoofer = registerSpeaker(blocks, "subwoofer", SpeakerType.SUBWOOFER, SUBWOOFER_SHAPE);
         bassReflexSpeaker = registerSpeaker(blocks, "bass_reflex_speaker", SpeakerType.BASS_REFLEX, BASS_REFLEX_SHAPE);
         hornSpeaker = registerSpeaker(blocks, "horn_speaker", SpeakerType.HORN, HORN_SHAPE);
         bookshelfSpeaker = registerSpeaker(blocks, "bookshelf_speaker", SpeakerType.BOOKSHELF, BOOKSHELF_SHAPE);
-        floorStandingSpeaker = registerSpeaker(blocks, "floor_standing_speaker", SpeakerType.FLOOR_STANDING, FLOOR_STANDING_SHAPE);
-    }
-
-    private static DeferredBlock registerSpeaker(BalmBlockRegistrar blocks, String name, SpeakerType speakerType) {
-        return registerSpeaker(blocks, name, speakerType, SPEAKER_SHAPE);
+        floorStandingSpeaker = blocks.register("floor_standing_speaker", FloorStandingSpeakerBlock::new, it ->
+                        it.mapColor(MapColor.COLOR_BLACK)
+                                .instrument(NoteBlockInstrument.BASS)
+                                .strength(2.0F, 6.0F)
+                                .sound(SoundType.WOOD)
+                                .ignitedByLava()
+                                .noOcclusion())
+                .withItem(BlockItem::new)
+                .asDeferredBlock();
     }
 
     private static DeferredBlock registerSpeaker(BalmBlockRegistrar blocks, String name, SpeakerType speakerType,

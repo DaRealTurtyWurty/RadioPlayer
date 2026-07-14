@@ -20,6 +20,8 @@ import java.util.Map;
 public class RadioMixerAudioStream implements AudioStream {
     private static final int MAX_OUTPUT_BYTES = 4_096;
     private static final int OUTPUT_BUFFER_COUNT = 4;
+    private static final float MIN_NORMALIZATION_GAIN = 1.0F;
+    private static final float SPEAKER_ARRAY_LOUDNESS_EXPONENT = 0.35F;
 
     private final Map<EmitterKey, List<SpeakerDriverRuntime>> driversByEmitter = new HashMap<>();
 
@@ -124,14 +126,19 @@ public class RadioMixerAudioStream implements AudioStream {
 
             float outLeft = 0.0f;
             float outRight = 0.0f;
+            float totalGain = 0.0F;
 
             for (RadioAudioEmitter emitter : emitters) {
-                float emitterSample = processForEmitter(mono, emitter);
-
-                SpatialGain gain = calculateGain(emitter, this.source);
-                outLeft += emitterSample * gain.left();
-                outRight += emitterSample * gain.right();
+                MixContribution contribution = calculateContribution(mono, emitter);
+                outLeft += contribution.left();
+                outRight += contribution.right();
+                totalGain += contribution.gain();
             }
+
+            float normalizedGain = Math.max(MIN_NORMALIZATION_GAIN, totalGain);
+            float normalization = (float) Math.pow(normalizedGain, SPEAKER_ARRAY_LOUDNESS_EXPONENT - 1.0F);
+            outLeft *= normalization;
+            outRight *= normalization;
 
             output.putShort(floatToShort(softClip(outLeft)));
             output.putShort(floatToShort(softClip(outRight)));
@@ -152,6 +159,15 @@ public class RadioMixerAudioStream implements AudioStream {
         short inLeft = input.getShort();
         short inRight = input.getShort();
         return ((inLeft / 32768.0f) + (inRight / 32768.0f)) / 2.0f;
+    }
+
+    private MixContribution calculateContribution(float sample, RadioAudioEmitter emitter) {
+        float emitterSample = processForEmitter(sample, emitter);
+        SpatialGain gain = calculateGain(emitter, this.source);
+        return new MixContribution(
+                emitterSample * gain.left(),
+                emitterSample * gain.right(),
+                Math.max(gain.left(), gain.right()));
     }
 
     private float processForEmitter(float sample, RadioAudioEmitter emitter) {
@@ -200,6 +216,9 @@ public class RadioMixerAudioStream implements AudioStream {
     }
 
     private record SpatialGain(float left, float right) {
+    }
+
+    private record MixContribution(float left, float right, float gain) {
     }
 
     private record EmitterKey(BlockPos pos, SpeakerType type) {
