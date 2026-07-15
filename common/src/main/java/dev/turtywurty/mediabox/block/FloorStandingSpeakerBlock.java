@@ -8,7 +8,6 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.ScheduledTickAccess;
@@ -20,14 +19,13 @@ import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 public class FloorStandingSpeakerBlock extends SpeakerBlock {
-    private static final VoxelShape SHAPE = Shapes.box(0.25, 0, 0.25, 0.75, 2, 0.75);
+    private static final VoxelShape SHAPE = Shapes.box(0.25, 0, 0.25, 0.75, 1, 0.75);
 
     public static final EnumProperty<DoubleBlockHalf> HALF = EnumProperty.create("half", DoubleBlockHalf.class);
 
@@ -41,14 +39,6 @@ public class FloorStandingSpeakerBlock extends SpeakerBlock {
         return blockState.getValue(HALF) == DoubleBlockHalf.LOWER
                 ? super.newBlockEntity(blockPos, blockState)
                 : null;
-    }
-
-    @Override
-    protected @NonNull VoxelShape getShape(BlockState state, @NonNull BlockGetter level, @NonNull BlockPos pos, @NonNull CollisionContext context) {
-        VoxelShape shape = super.getShape(state, level, pos, context);
-        return state.getValue(HALF) == DoubleBlockHalf.LOWER
-                ? shape.move(0, 1, 0)
-                : shape;
     }
 
     @Override
