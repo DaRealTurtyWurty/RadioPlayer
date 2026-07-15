@@ -2,7 +2,8 @@
     "format_version": "1.21.11",
     "texture_size": [64, 64],
     "textures": {
-        "1": "mediabox:block/bookshelf_speaker"
+        "1": "mediabox:block/bookshelf_speaker",
+        "particle": "mediabox:block/bookshelf_speaker"
     },
     "elements": [
         {
