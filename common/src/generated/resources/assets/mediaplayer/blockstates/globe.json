@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "mediaplayer:block/globe",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediaplayer:block/globe"
+    },
+    "facing=south": {
+      "model": "mediaplayer:block/globe",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "mediaplayer:block/globe",
+      "y": 270
+    }
+  }
+}

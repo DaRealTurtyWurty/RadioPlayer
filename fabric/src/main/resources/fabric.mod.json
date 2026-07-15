@@ -17,18 +17,18 @@
   "environment": "*",
   "entrypoints": {
     "main": [
-      "dev.turtywurty.radioplayer.fabric.FabricRadioplayer"
+      "dev.turtywurty.mediaplayer.fabric.FabricMediaPlayer"
     ],
     "client": [
-      "dev.turtywurty.radioplayer.fabric.client.FabricRadioplayerClient"
+      "dev.turtywurty.mediaplayer.fabric.client.FabricMediaPlayerClient"
     ],
     "fabric-datagen": [
-      "dev.turtywurty.radioplayer.fabric.datagen.ModDataGenerator"
+      "dev.turtywurty.mediaplayer.fabric.datagen.ModDataGenerator"
     ]
   },
   "mixins": [
-    "radioplayer.mixins.json",
-    "radioplayer.fabric.mixins.json"
+    "mediaplayer.mixins.json",
+    "mediaplayer.fabric.mixins.json"
   ],
   "depends": {
     "java": ">=${java_version}",
