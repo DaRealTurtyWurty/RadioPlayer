@@ -8,58 +8,110 @@ plugins {
     alias libs.plugins.modDevGradle
 }
 
-class FfprobeNative {
+class FfmpegNativeBundle {
     String id
     String url
     String sha256
-    String binaryPathInArchive
-    String outputName
+    String sha256Url
+    Map<String, String> binaryPathsInArchive
 }
 
-def ffprobeNatives = [
-        new FfprobeNative(
+def allFfmpegNatives = [
+        new FfmpegNativeBundle(
                 id: 'windows-x64',
                 url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-N-125505-gc57660fb18-win64-lgpl.zip',
                 sha256: '318f64dcb942bdf3242597aa50de0c6b2cb828b1c03205a49ff62d348ec4b32b',
-                binaryPathInArchive: 'ffmpeg-N-125505-gc57660fb18-win64-lgpl/bin/ffprobe.exe',
-                outputName: 'ffprobe.exe'
+                binaryPathsInArchive: [
+                        ffmpeg : 'ffmpeg-N-125505-gc57660fb18-win64-lgpl/bin/ffmpeg.exe',
+                        ffprobe: 'ffmpeg-N-125505-gc57660fb18-win64-lgpl/bin/ffprobe.exe'
+                ]
         ),
-        new FfprobeNative(
+        new FfmpegNativeBundle(
                 id: 'linux-x64',
                 url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-N-125505-gc57660fb18-linux64-lgpl.tar.xz',
                 sha256: '11f56cf617367175bc1a502c2945491f5d373262abf130f0062ba9ddb853c8e1',
-                binaryPathInArchive: 'ffmpeg-N-125505-gc57660fb18-linux64-lgpl/bin/ffprobe',
-                outputName: 'ffprobe'
+                binaryPathsInArchive: [
+                        ffmpeg : 'ffmpeg-N-125505-gc57660fb18-linux64-lgpl/bin/ffmpeg',
+                        ffprobe: 'ffmpeg-N-125505-gc57660fb18-linux64-lgpl/bin/ffprobe'
+                ]
         ),
-        new FfprobeNative(
+        new FfmpegNativeBundle(
                 id: 'linux-arm64',
                 url: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-07-08-13-30/ffmpeg-N-125505-gc57660fb18-linuxarm64-lgpl.tar.xz',
                 sha256: '473ec632361c8ceefba1e02bc91c5176de646c5ee593c1b63ea43cea100509db',
-                binaryPathInArchive: 'ffmpeg-N-125505-gc57660fb18-linuxarm64-lgpl/bin/ffprobe',
-                outputName: 'ffprobe'
+                binaryPathsInArchive: [
+                        ffmpeg : 'ffmpeg-N-125505-gc57660fb18-linuxarm64-lgpl/bin/ffmpeg',
+                        ffprobe: 'ffmpeg-N-125505-gc57660fb18-linuxarm64-lgpl/bin/ffprobe'
+                ]
         ),
-        new FfprobeNative(
-                id: "macos-x64",
-                url: "https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffprobe-n8.1.2/ffprobe-macos-x64.zip",
-                sha256: "5912f200dd109e7bd3565367a48499f3fbf1e367605474868f6b792835e1fb68",
-                binaryPathInArchive: "macos-x64/ffprobe",
-                outputName: "ffprobe"
+        new FfmpegNativeBundle(
+                id: 'macos-x64',
+                url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-x64.zip',
+                sha256Url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-x64.zip.sha256',
+                binaryPathsInArchive: [
+                        ffmpeg : 'macos-x64/ffmpeg',
+                        ffprobe: 'macos-x64/ffprobe'
+                ]
         ),
-        new FfprobeNative(
-                id: "macos-arm64",
-                url: "https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffprobe-n8.1.2/ffprobe-macos-arm64.zip",
-                sha256: "e9db505f8f1e245367b4e77586452e35961608d6a2cad217b7684d2f73c360f7",
-                binaryPathInArchive: "macos-arm64/ffprobe",
-                outputName: "ffprobe"
+        new FfmpegNativeBundle(
+                id: 'macos-arm64',
+                url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-arm64.zip',
+                sha256Url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-arm64.zip.sha256',
+                binaryPathsInArchive: [
+                        ffmpeg : 'macos-arm64/ffmpeg',
+                        ffprobe: 'macos-arm64/ffprobe'
+                ]
         )
 ]
 
-def ffprobeDownloadDir = layout.buildDirectory.dir('ffprobe/downloads')
-def ffprobeResourceRootDir = layout.buildDirectory.dir('generated/ffprobeResources')
+def currentPlatformId = providers.provider {
+    def os = System.getProperty('os.name', '').toLowerCase(Locale.ROOT)
+    def architecture = System.getProperty('os.arch', '').toLowerCase(Locale.ROOT)
+    def arm64 = architecture == 'aarch64' || architecture == 'arm64'
+    def x64 = architecture == 'amd64' || architecture == 'x86_64'
+
+    if (os.contains('win') && x64) return 'windows-x64'
+    if (os.contains('linux') && x64) return 'linux-x64'
+    if (os.contains('linux') && arm64) return 'linux-arm64'
+    if (os.contains('mac') && x64) return 'macos-x64'
+    if (os.contains('mac') && arm64) return 'macos-arm64'
+    return null
+}
+
+def requestedPlatformIds = providers.gradleProperty('ffmpegPlatforms').orNull
+        ?.split(',')
+        ?.collect { it.trim() }
+        ?.findAll { !it.isEmpty() }
+
+def developmentRun = gradle.startParameter.taskNames.any { taskName ->
+    def normalizedName = taskName.toLowerCase(Locale.ROOT)
+    normalizedName.contains('runclient') || normalizedName.contains('runserver') || normalizedName.contains('rundata')
+}
+
+def selectedPlatformIds = requestedPlatformIds
+if (selectedPlatformIds == null && developmentRun) {
+    def platformId = currentPlatformId.get()
+    if (platformId == null) {
+        throw new GradleException("FFmpeg is not bundled for ${System.getProperty('os.name')} (${System.getProperty('os.arch')})")
+    }
+    selectedPlatformIds = [platformId]
+}
+
+def ffmpegNatives = selectedPlatformIds == null
+        ? allFfmpegNatives
+        : allFfmpegNatives.findAll { it.id in selectedPlatformIds }
+
+if (selectedPlatformIds != null && ffmpegNatives.size() != selectedPlatformIds.size()) {
+    def knownPlatformIds = allFfmpegNatives.collect { it.id }
+    def unknownPlatformIds = selectedPlatformIds.findAll { !(it in knownPlatformIds) }
+    throw new GradleException("Unknown FFmpeg platform(s): ${unknownPlatformIds.join(', ')}")
+}
+
+def ffmpegDownloadDir = layout.buildDirectory.dir('ffmpeg/downloads')
+def ffmpegResourceRootDir = layout.buildDirectory.dir('generated/ffmpegResources')
 
 static String sha256(File file) {
     def digest = MessageDigest.getInstance('SHA-256')
-
     file.withInputStream { input ->
         byte[] buffer = new byte[8192]
         int read
@@ -67,13 +119,21 @@ static String sha256(File file) {
             digest.update(buffer, 0, read)
         }
     }
-
     return digest.digest().collect { String.format('%02x', it) }.join()
+}
+
+def download = { String url, File outputFile ->
+    def connection = url.toURL().openConnection()
+    connection.connectTimeout = 30_000
+    connection.readTimeout = 120_000
+    connection.setRequestProperty('User-Agent', 'MediaBox Gradle build')
+    connection.inputStream.withCloseable { input ->
+        outputFile.withOutputStream { output -> output << input }
+    }
 }
 
 neoForge {
     neoFormVersion = libs.neoForm.get().version
-    // Automatically enable AccessTransformers if the file exists
     def at = file('src/main/resources/META-INF/accesstransformer.cfg')
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
@@ -90,12 +150,11 @@ apply from: rootProject.file('repositories.gradle')
 apply from: 'dependencies.gradle'
 
 configurations {
-    ffprobeExtractor {
+    ffmpegExtractor {
         canBeResolved = true
         canBeConsumed = false
         transitive = false
     }
-
     commonJava {
         canBeResolved = false
         canBeConsumed = true
@@ -111,7 +170,7 @@ configurations {
 }
 
 dependencies {
-    ffprobeExtractor 'org.tukaani:xz:1.10'
+    ffmpegExtractor 'org.tukaani:xz:1.10'
 }
 
 sourceSets {
@@ -122,47 +181,48 @@ sourceSets {
     }
 }
 
-tasks.register('downloadFfprobeNatives') {
-    outputs.dir(ffprobeDownloadDir)
+tasks.register('downloadFfmpegNatives') {
+    outputs.dir(ffmpegDownloadDir)
 
     doLast {
-        def outputDir = ffprobeDownloadDir.get().asFile
+        logger.lifecycle("Bundling FFmpeg natives for: ${ffmpegNatives.collect { it.id }.join(', ')}")
+        def outputDir = ffmpegDownloadDir.get().asFile
         outputDir.mkdirs()
 
-        ffprobeNatives.each { nativeBin ->
-            def fileName = nativeBin.url.substring(nativeBin.url.lastIndexOf('/') + 1)
+        def downloadAndVerify = { String id, String url, String expectedSha256 ->
+            def fileName = url.substring(url.lastIndexOf('/') + 1)
             def outputFile = new File(outputDir, fileName)
-
-            if (!outputFile.exists()) {
-                logger.lifecycle("Downloading ${nativeBin.id} FFprobe...")
-                def connection = nativeBin.url.toURL().openConnection()
-                connection.connectTimeout = 30_000
-                connection.readTimeout = 120_000
-                connection.setRequestProperty('User-Agent', 'Media Player Gradle build')
-
-                try {
-                    connection.inputStream.withCloseable { input ->
-                        outputFile.withOutputStream { output ->
-                            output << input
-                        }
-                    }
-                } catch (Exception exception) {
-                    outputFile.delete()
-                    throw new GradleException("Failed to download FFprobe for ${nativeBin.id}", exception)
+            try {
+                if (!outputFile.exists()) {
+                    logger.lifecycle("Downloading ${id}...")
+                    download(url, outputFile)
                 }
-            }
 
-            def actualSha256 = sha256(outputFile)
-            if (!actualSha256.equalsIgnoreCase(nativeBin.sha256)) {
-                outputFile.delete()
-                throw new GradleException("""SHA-256 mismatch for ${nativeBin.id}
-Expected: ${nativeBin.sha256}
+                if (expectedSha256 == null) {
+                    def checksumFile = new File(outputDir, fileName + '.sha256')
+                    if (!checksumFile.exists()) {
+                        def nativeBundle = ffmpegNatives.find { it.url == url }
+                        download(nativeBundle.sha256Url, checksumFile)
+                    }
+                    expectedSha256 = checksumFile.text.trim().split(/\s+/)[0]
+                }
+
+                def actualSha256 = sha256(outputFile)
+                if (!actualSha256.equalsIgnoreCase(expectedSha256)) {
+                    throw new GradleException("""SHA-256 mismatch for ${id}
+Expected: ${expectedSha256}
 Actual:   ${actualSha256}
 File:     ${outputFile.absolutePath}
-
-The downloaded archive was deleted; re-run the build to download again.
 """)
+                }
+            } catch (Exception exception) {
+                outputFile.delete()
+                throw new GradleException("Failed to download or verify ${id}", exception)
             }
+        }
+
+        ffmpegNatives.each { nativeBundle ->
+            downloadAndVerify("${nativeBundle.id} FFmpeg bundle", nativeBundle.url, nativeBundle.sha256)
         }
     }
 }
@@ -174,7 +234,6 @@ def extractZipEntry = { File archiveFile, String entryName, File outputFile ->
         if (entry == null) {
             throw new GradleException("Missing ${entryName} in ${archiveFile.absolutePath}")
         }
-
         zipFile.getInputStream(entry).withCloseable { input ->
             Files.copy(input, outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
@@ -192,7 +251,7 @@ def extractTarXzEntry = { File archiveFile, String entryName, File outputFile ->
                 gradle.class.classLoader
         )
         URLClassLoader xzClassLoader = new URLClassLoader(
-                configurations.ffprobeExtractor.collect { it.toURI().toURL() } as URL[],
+                configurations.ffmpegExtractor.collect { it.toURI().toURL() } as URL[],
                 tarInputClass.classLoader
         )
         def xzInput = xzClassLoader.loadClass('org.tukaani.xz.XZInputStream')
@@ -203,9 +262,7 @@ def extractTarXzEntry = { File archiveFile, String entryName, File outputFile ->
             def entry
             while ((entry = tarInputClass.getMethod('getNextTarEntry').invoke(tarInput)) != null) {
                 if (entry.name == entryName) {
-                    outputFile.withOutputStream { output ->
-                        output << tarInput
-                    }
+                    outputFile.withOutputStream { output -> output << tarInput }
                     extracted = true
                     break
                 }
@@ -215,48 +272,51 @@ def extractTarXzEntry = { File archiveFile, String entryName, File outputFile ->
             xzClassLoader.close()
         }
     }
-
     if (!extracted) {
         throw new GradleException("Missing ${entryName} in ${archiveFile.absolutePath}")
     }
 }
 
-tasks.register('extractFfprobeNatives') {
-    dependsOn('downloadFfprobeNatives')
-
-    outputs.dir(ffprobeResourceRootDir)
+tasks.register('extractFfmpegNatives') {
+    dependsOn('downloadFfmpegNatives')
+    outputs.dir(ffmpegResourceRootDir)
 
     doLast {
-        def outputDir = ffprobeResourceRootDir.get().asFile
+        def outputDir = ffmpegResourceRootDir.get().asFile
         delete(outputDir)
         outputDir.mkdirs()
 
-        ffprobeNatives.each { nativeBin ->
-            def fileName = nativeBin.url.substring(nativeBin.url.lastIndexOf('/') + 1)
-            def archiveFile = new File(ffprobeDownloadDir.get().asFile, fileName)
-            def outputFile = new File(outputDir, "ffprobe/${nativeBin.id}/${nativeBin.outputName}")
-            outputFile.parentFile.mkdirs()
+        ffmpegNatives.each { nativeBundle ->
+            nativeBundle.binaryPathsInArchive.each { tool, archivePath ->
+                def outputName = tool + (nativeBundle.id.startsWith('windows-') ? '.exe' : '')
+                def outputFile = new File(outputDir, "ffmpeg/${nativeBundle.id}/${outputName}")
+                outputFile.parentFile.mkdirs()
 
-            if (nativeBin.url.endsWith('.zip')) {
-                extractZipEntry(archiveFile, nativeBin.binaryPathInArchive, outputFile)
-            } else if (nativeBin.url.endsWith('.tar.xz')) {
-                extractTarXzEntry(archiveFile, nativeBin.binaryPathInArchive, outputFile)
-            } else {
-                throw new GradleException("Unsupported archive type: ${nativeBin.url}")
+                if (nativeBundle.url.endsWith('.zip')) {
+                    def fileName = nativeBundle.url.substring(nativeBundle.url.lastIndexOf('/') + 1)
+                    def archiveFile = new File(ffmpegDownloadDir.get().asFile, fileName)
+                    extractZipEntry(archiveFile, archivePath, outputFile)
+                } else if (nativeBundle.url.endsWith('.tar.xz')) {
+                    def fileName = nativeBundle.url.substring(nativeBundle.url.lastIndexOf('/') + 1)
+                    def archiveFile = new File(ffmpegDownloadDir.get().asFile, fileName)
+                    extractTarXzEntry(archiveFile, archivePath, outputFile)
+                } else {
+                    throw new GradleException("Unsupported archive type: ${nativeBundle.url}")
+                }
             }
         }
     }
 }
 
 tasks.named('processResources') {
-    dependsOn('extractFfprobeNatives')
+    dependsOn('extractFfmpegNatives')
 }
 
 artifacts {
     commonJava sourceSets.main.java.sourceDirectories.singleFile
     commonResources sourceSets.main.resources.sourceDirectories.singleFile
     commonGeneratedResources sourceSets.generated.resources.sourceDirectories.singleFile
-    commonGeneratedResources(ffprobeResourceRootDir) {
-        builtBy tasks.named('extractFfprobeNatives')
+    commonGeneratedResources(ffmpegResourceRootDir) {
+        builtBy tasks.named('extractFfmpegNatives')
     }
 }

@@ -14,7 +14,7 @@ public final class AudioStreamDecoders {
     }
 
     /**
-     * Registers a decoder ahead of the default Lavaplayer/FFmpeg URL decoder.
+     * Registers a decoder ahead of the default FFmpeg decoder.
      */
     public static void register(@NonNull AudioStreamDecoder decoder) {
         DECODERS.add(decoder);
@@ -27,6 +27,6 @@ public final class AudioStreamDecoders {
             }
         }
 
-        return LavaPlayerAudioStream.open(mediaLocation);
+        return FfmpegAudioStream.open(mediaLocation);
     }
 }

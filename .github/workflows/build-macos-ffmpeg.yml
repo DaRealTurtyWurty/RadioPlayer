@@ -1,0 +1,205 @@
+name: Build macOS FFmpeg natives
+
+on:
+  workflow_call:
+    inputs:
+      ffmpeg_version:
+        description: "FFmpeg Git tag"
+        required: false
+        type: string
+        default: "n8.1.2"
+      publish_release:
+        description: "Publish the archives to the matching ffmpeg-* GitHub release"
+        required: false
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      ffmpeg_version:
+        description: "FFmpeg Git tag"
+        required: true
+        default: "n8.1.2"
+      publish_release:
+        description: "Publish the archives to the matching ffmpeg-* GitHub release"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build FFmpeg and FFprobe for ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-x64
+            runner: macos-15-intel
+            expected_arch: x86_64
+
+          - platform: macos-arm64
+            runner: macos-15
+            expected_arch: arm64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check runner architecture
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          ACTUAL_ARCH="$(uname -m)"
+          echo "Runner architecture: $ACTUAL_ARCH"
+
+          if [[ "$ACTUAL_ARCH" != "${{ matrix.expected_arch }}" ]]; then
+            echo "Expected ${{ matrix.expected_arch }}, got $ACTUAL_ARCH"
+            exit 1
+          fi
+
+      - name: Download FFmpeg source
+        shell: bash
+        env:
+          FFMPEG_VERSION: ${{ inputs.ffmpeg_version }}
+        run: |
+          set -euxo pipefail
+
+          git clone \
+            --depth 1 \
+            --branch "$FFMPEG_VERSION" \
+            https://github.com/FFmpeg/FFmpeg.git \
+            ffmpeg-source
+
+      - name: Install build dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+          brew install nasm
+
+      - name: Configure FFmpeg
+        working-directory: ffmpeg-source
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          ./configure \
+            --prefix="$PWD/build" \
+            --enable-ffmpeg \
+            --disable-ffplay \
+            --enable-ffprobe \
+            --disable-doc \
+            --disable-debug \
+            --disable-autodetect \
+            --enable-securetransport \
+            --disable-shared \
+            --enable-static
+
+      - name: Build FFmpeg and FFprobe
+        working-directory: ffmpeg-source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make -j"$(sysctl -n hw.logicalcpu)" ffmpeg ffprobe
+
+      - name: Verify builds and licence
+        working-directory: ffmpeg-source
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          for binary in ffmpeg ffprobe; do
+            "./$binary" -version
+            file "./$binary"
+
+            CONFIGURATION="$("./$binary" -version | grep '^configuration:')"
+            if echo "$CONFIGURATION" | grep -q -- '--enable-gpl'; then
+              echo "Unexpected GPL build in $binary"
+              exit 1
+            fi
+            if echo "$CONFIGURATION" | grep -q -- '--enable-nonfree'; then
+              echo "Unexpected nonfree build in $binary"
+              exit 1
+            fi
+          done
+
+      - name: Package FFmpeg natives
+        working-directory: ffmpeg-source
+        shell: bash
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          FFMPEG_VERSION: ${{ inputs.ffmpeg_version }}
+        run: |
+          set -euxo pipefail
+
+          OUTPUT_DIR="$PWD/dist/$PLATFORM"
+          mkdir -p "$OUTPUT_DIR"
+
+          cp ffmpeg ffprobe "$OUTPUT_DIR/"
+          chmod +x "$OUTPUT_DIR/ffmpeg" "$OUTPUT_DIR/ffprobe"
+
+          cp COPYING.LGPLv2.1 "$OUTPUT_DIR/COPYING.LGPLv2.1"
+          cp COPYING.LGPLv3 "$OUTPUT_DIR/COPYING.LGPLv3"
+          cp LICENSE.md "$OUTPUT_DIR/LICENSE.md"
+
+          {
+            echo "FFmpeg version: $FFMPEG_VERSION"
+            echo "Platform: $PLATFORM"
+            echo "Architecture: $(uname -m)"
+            echo
+            ./ffmpeg -version
+            echo
+            ./ffprobe -version
+          } > "$OUTPUT_DIR/BUILD-INFO.txt"
+
+          shasum -a 256 "$OUTPUT_DIR/ffmpeg" "$OUTPUT_DIR/ffprobe" \
+            > "$OUTPUT_DIR/binaries.sha256"
+
+          ARCHIVE="$PWD/dist/ffmpeg-$PLATFORM.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$OUTPUT_DIR" "$ARCHIVE"
+          shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+
+      - name: Upload FFmpeg native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-${{ matrix.platform }}
+          path: |
+            ffmpeg-source/dist/ffmpeg-${{ matrix.platform }}.zip
+            ffmpeg-source/dist/ffmpeg-${{ matrix.platform }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish macOS native release
+    if: ${{ inputs.publish_release }}
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ffmpeg-macos-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FFMPEG_VERSION: ${{ inputs.ffmpeg_version }}
+        run: |
+          set -euxo pipefail
+
+          RELEASE_TAG="ffmpeg-$FFMPEG_VERSION"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$RELEASE_TAG" release-assets/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "FFmpeg $FFMPEG_VERSION native tools" \
+              --notes "LGPL FFmpeg and FFprobe builds for macOS x64 and ARM64, generated by GitHub Actions."
+          fi
