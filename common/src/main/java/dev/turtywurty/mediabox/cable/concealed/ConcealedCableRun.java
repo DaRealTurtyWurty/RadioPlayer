@@ -17,14 +17,16 @@ import java.util.UUID;
 public record ConcealedCableRun(
         UUID id,
         MediaSignalType signalType,
-        Set<PortEndpoint> terminals
+        Set<PortEndpoint> terminals,
+        int cableItems
 ) {
     public static final Codec<ConcealedCableRun> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UUIDUtil.CODEC.fieldOf("id").forGetter(ConcealedCableRun::id),
             MediaSignalType.CODEC.fieldOf("signal_type").forGetter(ConcealedCableRun::signalType),
             PortEndpoint.CODEC.listOf().fieldOf("terminals")
                     .xmap(Set::copyOf, ArrayList::new)
-                    .forGetter(ConcealedCableRun::terminals)
+                    .forGetter(ConcealedCableRun::terminals),
+            Codec.INT.fieldOf("cable_items").forGetter(ConcealedCableRun::cableItems)
     ).apply(instance, ConcealedCableRun::new));
 
     public ConcealedCableRun {
@@ -34,5 +36,7 @@ public record ConcealedCableRun(
 
         if (terminals.size() != 2)
             throw new IllegalArgumentException("A concealed cable run needs exactly two terminals");
+        if (cableItems < 1)
+            throw new IllegalArgumentException("A concealed cable run needs at least one cable item");
     }
 }

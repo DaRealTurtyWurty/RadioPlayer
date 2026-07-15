@@ -92,6 +92,14 @@ public class AudioCableItem extends Item {
         try {
             boolean concealed = isConcealedTerminal(serverLevel, firstPort.get())
                     && isConcealedTerminal(serverLevel, clicked);
+            double cableLength = concealed
+                    ? concealedMinimumLength(firstPort.get(), clicked)
+                    : Math.sqrt(firstEndpoint.pos().distSqr(clicked.endpoint().pos()));
+            int requiredItems = CableConstants.itemsForLength(cableLength);
+            boolean consumesItems = player == null || !player.isCreative();
+            if (consumesItems && stack.getCount() < requiredItems)
+                throw new IllegalArgumentException("This connection requires " + requiredItems + " cable items");
+
             if (concealed) {
                 validateProspectiveNetwork(serverLevel, manager, firstPort.get(), clicked);
                 ConcealedCableInstaller.install(
@@ -99,7 +107,7 @@ public class AudioCableItem extends Item {
                         firstEndpoint,
                         clicked.endpoint(),
                         MediaSignalType.AUDIO,
-                        CableConstants.MAX_CABLE_LENGTH);
+                        requiredItems);
             } else {
                 validateVisibleConnection(serverLevel, manager, firstPort.get(), clicked);
                 savedData.addVisibleCable(new VisibleCableConnection(
@@ -107,15 +115,17 @@ public class AudioCableItem extends Item {
                         firstEndpoint,
                         clicked.endpoint(),
                         MediaSignalType.AUDIO,
+                        requiredItems,
                         DEFAULT_SLACK));
                 CableSync.broadcastSnapshot(serverLevel);
             }
 
             CableItemData.clearPendingEndpoint(stack);
-            if (player == null || !player.isCreative())
-                stack.shrink(1);
+            if (consumesItems)
+                stack.shrink(requiredItems);
 
-            notify(player, concealed ? "Concealed audio cable installed" : "Audio cable connected");
+            notify(player, (concealed ? "Concealed audio cable installed using " : "Audio cable connected using ")
+                    + requiredItems + (requiredItems == 1 ? " cable" : " cables"));
             return InteractionResult.SUCCESS_SERVER;
         } catch (IllegalArgumentException exception) {
             notify(player, exception.getMessage());
@@ -130,11 +140,6 @@ public class AudioCableItem extends Item {
             ResolvedMediaPort second) {
         if (!first.endpoint().dimension().equals(second.endpoint().dimension()))
             throw new IllegalArgumentException("Cable endpoints must be in the same dimension");
-
-        if (first.endpoint().pos().distSqr(second.endpoint().pos())
-                > CableConstants.MAX_CABLE_LENGTH * CableConstants.MAX_CABLE_LENGTH)
-            throw new IllegalArgumentException(
-                    "The visible cable is too long (maximum " + CableConstants.MAX_CABLE_LENGTH + " blocks)");
 
         if (!first.port().supports(MediaSignalType.AUDIO) || !second.port().supports(MediaSignalType.AUDIO))
             throw new IllegalArgumentException("Both ports must support audio");
@@ -172,6 +177,14 @@ public class AudioCableItem extends Item {
     private static boolean isConcealedTerminal(ServerLevel level, ResolvedMediaPort port) {
         BlockEntity blockEntity = level.getBlockEntity(port.endpoint().pos());
         return blockEntity instanceof ConcealedCablePortProvider;
+    }
+
+    private static int concealedMinimumLength(ResolvedMediaPort first, ResolvedMediaPort second) {
+        var firstInsideWall = first.endpoint().pos().relative(first.port().face().getOpposite());
+        var secondInsideWall = second.endpoint().pos().relative(second.port().face().getOpposite());
+        return Math.abs(firstInsideWall.getX() - secondInsideWall.getX())
+                + Math.abs(firstInsideWall.getY() - secondInsideWall.getY())
+                + Math.abs(firstInsideWall.getZ() - secondInsideWall.getZ());
     }
 
     private static boolean directionsAreCompatible(MediaPort first, MediaPort second) {

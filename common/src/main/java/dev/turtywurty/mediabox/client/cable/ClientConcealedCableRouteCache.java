@@ -9,7 +9,6 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -19,6 +18,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.UUID;
 
@@ -87,7 +87,7 @@ public final class ClientConcealedCableRouteCache {
                 level,
                 firstInsideWall,
                 secondInsideWall,
-                CableConstants.MAX_CABLE_LENGTH);
+                CableConstants.capacityForItems(run.cableItems()));
         if (path.isEmpty())
             return Optional.empty();
 
@@ -103,9 +103,7 @@ public final class ClientConcealedCableRouteCache {
             BlockPos start,
             BlockPos end,
             int maxLength) {
-        int minimumLength = Math.abs(start.getX() - end.getX())
-                + Math.abs(start.getY() - end.getY())
-                + Math.abs(start.getZ() - end.getZ());
+        int minimumLength = manhattanDistance(start, end);
         if (minimumLength > maxLength || !canRouteThrough(level, start) || !canRouteThrough(level, end))
             return Optional.empty();
         if (start.equals(end))
@@ -113,28 +111,37 @@ public final class ClientConcealedCableRouteCache {
 
         BlockPos immutableStart = start.immutable();
         BlockPos immutableEnd = end.immutable();
-        ArrayDeque<BlockPos> pending = new ArrayDeque<>();
+        PriorityQueue<RouteNode> pending = new PriorityQueue<>(Comparator
+                .comparingInt(RouteNode::estimatedTotalDistance)
+                .thenComparingInt(RouteNode::distance));
         Map<BlockPos, BlockPos> previous = new HashMap<>();
         Map<BlockPos, Integer> distances = new HashMap<>();
-        pending.add(immutableStart);
+        pending.add(new RouteNode(immutableStart, 0, minimumLength));
         distances.put(immutableStart, 0);
 
         while (!pending.isEmpty()) {
-            BlockPos current = pending.removeFirst();
-            int distance = distances.get(current);
+            RouteNode node = pending.remove();
+            BlockPos current = node.pos();
+            int distance = node.distance();
+            if (distance != distances.getOrDefault(current, Integer.MAX_VALUE))
+                continue;
             if (distance >= maxLength)
                 continue;
 
             for (Direction direction : Direction.values()) {
                 BlockPos next = current.relative(direction).immutable();
-                if (distances.containsKey(next) || !canRouteThrough(level, next))
+                int nextDistance = distance + 1;
+                int estimatedTotalDistance = nextDistance + manhattanDistance(next, immutableEnd);
+                if (estimatedTotalDistance > maxLength
+                        || nextDistance >= distances.getOrDefault(next, Integer.MAX_VALUE)
+                        || !canRouteThrough(level, next))
                     continue;
 
                 previous.put(next, current);
-                distances.put(next, distance + 1);
+                distances.put(next, nextDistance);
                 if (next.equals(immutableEnd))
                     return Optional.of(reconstructPath(previous, immutableStart, immutableEnd));
-                pending.addLast(next);
+                pending.add(new RouteNode(next, nextDistance, estimatedTotalDistance));
             }
         }
 
@@ -143,6 +150,12 @@ public final class ClientConcealedCableRouteCache {
 
     private static boolean canRouteThrough(ClientLevel level, BlockPos pos) {
         return level.isLoaded(pos) && !level.getBlockState(pos).isAir();
+    }
+
+    private static int manhattanDistance(BlockPos first, BlockPos second) {
+        return Math.abs(first.getX() - second.getX())
+                + Math.abs(first.getY() - second.getY())
+                + Math.abs(first.getZ() - second.getZ());
     }
 
     private static List<BlockPos> reconstructPath(
@@ -209,6 +222,9 @@ public final class ClientConcealedCableRouteCache {
             segments = List.copyOf(segments);
             occupiedBlocks = Set.copyOf(occupiedBlocks);
         }
+    }
+
+    private record RouteNode(BlockPos pos, int distance, int estimatedTotalDistance) {
     }
 
     private static void removeRoute(UUID runId) {

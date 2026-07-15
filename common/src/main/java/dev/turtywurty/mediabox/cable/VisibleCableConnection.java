@@ -12,6 +12,7 @@ public record VisibleCableConnection(
         PortEndpoint first,
         PortEndpoint second,
         MediaSignalType signalType,
+        int cableItems,
         float slack
 ) {
     public static final Codec<VisibleCableConnection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -19,6 +20,7 @@ public record VisibleCableConnection(
             PortEndpoint.CODEC.fieldOf("first").forGetter(VisibleCableConnection::first),
             PortEndpoint.CODEC.fieldOf("second").forGetter(VisibleCableConnection::second),
             MediaSignalType.CODEC.fieldOf("signal_type").forGetter(VisibleCableConnection::signalType),
+            Codec.INT.fieldOf("cable_items").forGetter(VisibleCableConnection::cableItems),
             Codec.FLOAT.optionalFieldOf("slack", 0.0F).forGetter(VisibleCableConnection::slack)
     ).apply(instance, VisibleCableConnection::new));
 
@@ -27,5 +29,7 @@ public record VisibleCableConnection(
         Objects.requireNonNull(first, "first");
         Objects.requireNonNull(second, "second");
         Objects.requireNonNull(signalType, "signalType");
+        if (cableItems < 1)
+            throw new IllegalArgumentException("A visible cable needs at least one cable item");
     }
 }

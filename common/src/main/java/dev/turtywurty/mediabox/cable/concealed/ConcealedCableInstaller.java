@@ -2,6 +2,7 @@ package dev.turtywurty.mediabox.cable.concealed;
 
 import dev.turtywurty.mediabox.cable.CableSavedData;
 import dev.turtywurty.mediabox.cable.CableSync;
+import dev.turtywurty.mediabox.cable.CableConstants;
 import dev.turtywurty.mediabox.cable.MediaPortLookup;
 import dev.turtywurty.mediabox.cable.MediaSignalType;
 import dev.turtywurty.mediabox.cable.PortDirection;
@@ -25,13 +26,12 @@ public final class ConcealedCableInstaller {
             PortEndpoint firstTerminal,
             PortEndpoint secondTerminal,
             MediaSignalType signalType,
-            int maxLength) {
+            int cableItems) {
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(firstTerminal, "firstTerminal");
         Objects.requireNonNull(secondTerminal, "secondTerminal");
         Objects.requireNonNull(signalType, "signalType");
-        if (maxLength < 0)
-            throw new IllegalArgumentException("Cable length cannot be negative");
+        double cableCapacity = CableConstants.capacityForItems(cableItems);
         if (firstTerminal.equals(secondTerminal))
             throw new IllegalArgumentException("A concealed run needs two different wall terminals");
         if (!level.dimension().equals(firstTerminal.dimension())
@@ -45,13 +45,14 @@ public final class ConcealedCableInstaller {
         int minimumLength = Math.abs(firstInsideWall.getX() - secondInsideWall.getX())
                 + Math.abs(firstInsideWall.getY() - secondInsideWall.getY())
                 + Math.abs(firstInsideWall.getZ() - secondInsideWall.getZ());
-        if (minimumLength > maxLength)
-            throw new IllegalArgumentException("The concealed cable is too long (maximum " + maxLength + " blocks)");
+        if (minimumLength > cableCapacity)
+            throw new IllegalArgumentException("The concealed cable requires more cable items");
 
         ConcealedCableRun run = new ConcealedCableRun(
                 UUID.randomUUID(),
                 signalType,
-                Set.of(firstTerminal, secondTerminal));
+                Set.of(firstTerminal, secondTerminal),
+                cableItems);
         CableSavedData.get(level).addConcealedCableRun(run);
         CableSync.broadcastSnapshot(level);
         return run;
