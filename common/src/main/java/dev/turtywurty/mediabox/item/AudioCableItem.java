@@ -12,6 +12,8 @@ import dev.turtywurty.mediabox.cable.PortDirection;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.ResolvedMediaPort;
 import dev.turtywurty.mediabox.cable.VisibleCableConnection;
+import dev.turtywurty.mediabox.cable.VisibleCableRoute;
+import dev.turtywurty.mediabox.cable.VisibleCableRoutePlanner;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCableInstaller;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCablePortProvider;
 import net.minecraft.network.chat.Component;
@@ -30,8 +32,6 @@ import java.util.Set;
 import java.util.UUID;
 
 public class AudioCableItem extends Item {
-    private static final float DEFAULT_SLACK = 0.25F;
-
     public AudioCableItem(Properties properties) {
         super(properties);
     }
@@ -92,15 +92,12 @@ public class AudioCableItem extends Item {
         try {
             boolean concealed = isConcealedTerminal(serverLevel, firstPort.get())
                     && isConcealedTerminal(serverLevel, clicked);
-            double cableLength = concealed
-                    ? concealedMinimumLength(firstPort.get(), clicked)
-                    : Math.sqrt(firstEndpoint.pos().distSqr(clicked.endpoint().pos()));
-            int requiredItems = CableConstants.itemsForLength(cableLength);
             boolean consumesItems = player == null || !player.isCreative();
-            if (consumesItems && stack.getCount() < requiredItems)
-                throw new IllegalArgumentException("This connection requires " + requiredItems + " cable items");
+            int requiredItems;
 
             if (concealed) {
+                requiredItems = CableConstants.itemsForLength(concealedMinimumLength(firstPort.get(), clicked));
+                requireCableItems(stack, requiredItems, consumesItems);
                 validateProspectiveNetwork(serverLevel, manager, firstPort.get(), clicked);
                 ConcealedCableInstaller.install(
                         serverLevel,
@@ -110,13 +107,33 @@ public class AudioCableItem extends Item {
                         requiredItems);
             } else {
                 validateVisibleConnection(serverLevel, manager, firstPort.get(), clicked);
+                double directLength = VisibleCableRoutePlanner.portPosition(serverLevel, firstPort.get())
+                        .distanceTo(VisibleCableRoutePlanner.portPosition(serverLevel, clicked));
+                double searchCapacity = consumesItems
+                        ? CableConstants.capacityForItems(stack.getCount())
+                        : directLength + 80.0;
+                Optional<VisibleCableRoute> tautRoute = VisibleCableRoutePlanner.findTautRoute(
+                        serverLevel,
+                        firstPort.get(),
+                        clicked,
+                        searchCapacity);
+                if (tautRoute.isEmpty())
+                    throw new IllegalArgumentException("No collision-free cable route fits the available cable");
+
+                requiredItems = CableConstants.itemsForLength(tautRoute.get().length());
+                requireCableItems(stack, requiredItems, consumesItems);
+                double purchasedCapacity = CableConstants.capacityForItems(requiredItems);
+                VisibleCableRoute route = VisibleCableRoutePlanner.addCollisionSafeSag(
+                        serverLevel,
+                        tautRoute.get(),
+                        purchasedCapacity);
                 savedData.addVisibleCable(new VisibleCableConnection(
                         UUID.randomUUID(),
                         firstEndpoint,
                         clicked.endpoint(),
                         MediaSignalType.AUDIO,
                         requiredItems,
-                        DEFAULT_SLACK));
+                        route));
                 CableSync.broadcastSnapshot(serverLevel);
             }
 
@@ -131,6 +148,11 @@ public class AudioCableItem extends Item {
             notify(player, exception.getMessage());
             return InteractionResult.FAIL;
         }
+    }
+
+    private static void requireCableItems(ItemStack stack, int requiredItems, boolean consumesItems) {
+        if (consumesItems && stack.getCount() < requiredItems)
+            throw new IllegalArgumentException("This connection requires " + requiredItems + " cable items");
     }
 
     private static void validateVisibleConnection(

@@ -1,7 +1,6 @@
 package dev.turtywurty.mediabox.client.render.cable;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import dev.turtywurty.mediabox.block.CablePortBlock;
 import dev.turtywurty.mediabox.cable.*;
 import dev.turtywurty.mediabox.client.cable.ClientCableState;
 import dev.turtywurty.mediabox.client.cable.ClientConcealedCableRouteCache;
@@ -11,11 +10,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.Optional;
 
 public final class CableWorldRenderer {
     private static final double VISIBLE_RENDER_DISTANCE_SQUARED = 160.0 * 160.0;
@@ -56,26 +54,31 @@ public final class CableWorldRenderer {
             PoseStack poseStack,
             SubmitNodeCollector submitNodeCollector,
             VisibleCableConnection connection) {
-        Vec3 first = portPosition(level, connection.first());
-        Vec3 second = portPosition(level, connection.second());
-        Vec3 midpoint = first.add(second).scale(0.5);
+        var points = connection.route().points();
+        Vec3 midpoint = points.get(points.size() / 2);
         if (midpoint.distanceToSqr(cameraPos) > VISIBLE_RENDER_DISTANCE_SQUARED)
             return;
 
-        EntityRenderState.LeashState leashState = new EntityRenderState.LeashState();
-        leashState.start = first;
-        leashState.end = second;
-        leashState.offset = Vec3.ZERO;
-        leashState.startBlockLight = level.getBrightness(LightLayer.BLOCK, connection.first().pos());
-        leashState.endBlockLight = level.getBrightness(LightLayer.BLOCK, connection.second().pos());
-        leashState.startSkyLight = level.getBrightness(LightLayer.SKY, connection.first().pos());
-        leashState.endSkyLight = level.getBrightness(LightLayer.SKY, connection.second().pos());
-        leashState.slack = connection.slack() > 0.0F;
+        for (int index = 1; index < points.size(); index++) {
+            Vec3 first = points.get(index - 1);
+            Vec3 second = points.get(index);
+            BlockPos firstLightPos = BlockPos.containing(first.x, first.y, first.z);
+            BlockPos secondLightPos = BlockPos.containing(second.x, second.y, second.z);
+            EntityRenderState.LeashState leashState = new EntityRenderState.LeashState();
+            leashState.start = first;
+            leashState.end = second;
+            leashState.offset = Vec3.ZERO;
+            leashState.startBlockLight = level.getBrightness(LightLayer.BLOCK, firstLightPos);
+            leashState.endBlockLight = level.getBrightness(LightLayer.BLOCK, secondLightPos);
+            leashState.startSkyLight = level.getBrightness(LightLayer.SKY, firstLightPos);
+            leashState.endSkyLight = level.getBrightness(LightLayer.SKY, secondLightPos);
+            leashState.slack = false;
 
-        poseStack.pushPose();
-        poseStack.translate(first.x - cameraPos.x, first.y - cameraPos.y, first.z - cameraPos.z);
-        submitNodeCollector.submitLeash(poseStack, leashState);
-        poseStack.popPose();
+            poseStack.pushPose();
+            poseStack.translate(first.x - cameraPos.x, first.y - cameraPos.y, first.z - cameraPos.z);
+            submitNodeCollector.submitLeash(poseStack, leashState);
+            poseStack.popPose();
+        }
     }
 
     private static void submitConcealedSegment(
@@ -108,23 +111,6 @@ public final class CableWorldRenderer {
                     }
                 });
         poseStack.popPose();
-    }
-
-    private static Vec3 portPosition(ClientLevel level, PortEndpoint endpoint) {
-        Vec3 center = Vec3.atCenterOf(endpoint.pos());
-        Optional<ResolvedMediaPort> resolved = MediaPortLookup.resolve(level, endpoint);
-        if (resolved.isEmpty())
-            return center;
-
-        var state = level.getBlockState(endpoint.pos());
-        if (state.getBlock() instanceof CablePortBlock)
-            return CablePortBlock.portPosition(endpoint.pos(), state);
-
-        Direction face = resolved.get().port().face();
-        return center.add(
-                face.getStepX() * 0.51,
-                face.getStepY() * 0.51,
-                face.getStepZ() * 0.51);
     }
 
     private static boolean isCableItemHeld(Minecraft minecraft) {

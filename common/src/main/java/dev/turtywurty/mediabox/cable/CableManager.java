@@ -71,6 +71,21 @@ public final class CableManager {
         rebuildNetworks();
     }
 
+    public void updateVisibleCable(VisibleCableConnection cable) {
+        validateCable(cable);
+        VisibleCableConnection previous = this.visibleConnections.get(cable.id());
+        if (previous == null)
+            throw new IllegalArgumentException("No visible cable with ID " + cable.id() + " exists");
+        if (previous.equals(cable))
+            return;
+        if (!previous.first().equals(cable.first())
+                || !previous.second().equals(cable.second())
+                || previous.signalType() != cable.signalType())
+            throw new IllegalArgumentException("A route update cannot change visible cable topology");
+
+        this.visibleConnections.put(cable.id(), cable);
+    }
+
     public void updateConcealedCableRun(ConcealedCableRun run) {
         Objects.requireNonNull(run, "run");
         ConcealedCableRun previous = this.concealedRuns.get(run.id());
@@ -230,8 +245,7 @@ public final class CableManager {
         if (!cable.first().dimension().equals(cable.second().dimension()))
             throw new IllegalArgumentException("A visible cable cannot connect ports in different dimensions");
 
-        if (!Float.isFinite(cable.slack()) || cable.slack() < 0.0F)
-            throw new IllegalArgumentException("Cable slack must be finite and non-negative");
+        Objects.requireNonNull(cable.route(), "cable.route");
     }
 
     private static void validateEndpoint(PortEndpoint endpoint, String name) {

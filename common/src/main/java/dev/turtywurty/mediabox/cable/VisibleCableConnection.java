@@ -13,7 +13,7 @@ public record VisibleCableConnection(
         PortEndpoint second,
         MediaSignalType signalType,
         int cableItems,
-        float slack
+        VisibleCableRoute route
 ) {
     public static final Codec<VisibleCableConnection> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UUIDUtil.CODEC.fieldOf("id").forGetter(VisibleCableConnection::id),
@@ -21,7 +21,7 @@ public record VisibleCableConnection(
             PortEndpoint.CODEC.fieldOf("second").forGetter(VisibleCableConnection::second),
             MediaSignalType.CODEC.fieldOf("signal_type").forGetter(VisibleCableConnection::signalType),
             Codec.INT.fieldOf("cable_items").forGetter(VisibleCableConnection::cableItems),
-            Codec.FLOAT.optionalFieldOf("slack", 0.0F).forGetter(VisibleCableConnection::slack)
+            VisibleCableRoute.CODEC.fieldOf("route").forGetter(VisibleCableConnection::route)
     ).apply(instance, VisibleCableConnection::new));
 
     public VisibleCableConnection {
@@ -29,7 +29,10 @@ public record VisibleCableConnection(
         Objects.requireNonNull(first, "first");
         Objects.requireNonNull(second, "second");
         Objects.requireNonNull(signalType, "signalType");
+        Objects.requireNonNull(route, "route");
         if (cableItems < 1)
             throw new IllegalArgumentException("A visible cable needs at least one cable item");
+        if (route.length() > CableConstants.capacityForItems(cableItems) + 1.0E-6)
+            throw new IllegalArgumentException("A visible cable route exceeds its purchased capacity");
     }
 }

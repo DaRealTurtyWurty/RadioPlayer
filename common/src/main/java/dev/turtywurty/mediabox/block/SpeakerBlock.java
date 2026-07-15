@@ -1,9 +1,9 @@
 package dev.turtywurty.mediabox.block;
 
 import dev.turtywurty.mediabox.sound.SpeakerType;
-import dev.turtywurty.mediabox.cable.CableSavedData;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.CableSync;
+import dev.turtywurty.mediabox.cable.VisibleCablePhysics;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
@@ -104,7 +104,7 @@ public class SpeakerBlock extends Block implements EntityBlock {
             ServerLevel level,
             BlockPos pos,
             boolean movedByPiston) {
-        CableSavedData.get(level).removePort(new PortEndpoint(
+        VisibleCablePhysics.removePort(level, new PortEndpoint(
                 level.dimension(),
                 pos,
                 SpeakerBlockEntity.AUDIO_INPUT_PORT_ID), false);

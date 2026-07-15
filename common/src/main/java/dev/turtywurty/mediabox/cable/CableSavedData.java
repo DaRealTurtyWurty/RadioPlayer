@@ -47,6 +47,11 @@ public final class CableSavedData extends SavedData {
         return level.getDataStorage().computeIfAbsent(TYPE);
     }
 
+    public static Optional<CableSavedData> getIfPresent(ServerLevel level) {
+        Objects.requireNonNull(level, "level");
+        return Optional.ofNullable(level.getDataStorage().get(TYPE));
+    }
+
     public CableManager manager() {
         return this.manager;
     }
@@ -63,6 +68,11 @@ public final class CableSavedData extends SavedData {
         return removed;
     }
 
+    public void updateVisibleCable(VisibleCableConnection connection) {
+        this.manager.updateVisibleCable(connection);
+        setDirty();
+    }
+
     public Set<VisibleCableConnection> removeVisibleCablesAt(PortEndpoint endpoint) {
         Set<VisibleCableConnection> connections = this.manager.visibleCablesAt(endpoint);
         for (VisibleCableConnection connection : connections) {
@@ -72,20 +82,6 @@ public final class CableSavedData extends SavedData {
         if (!connections.isEmpty())
             setDirty();
         return connections;
-    }
-
-    public void removePort(PortEndpoint endpoint, boolean removeConcealedRun) {
-        boolean changed = !removeVisibleCablesAt(endpoint).isEmpty();
-        if (removeConcealedRun) {
-            Set<ConcealedCableRun> runs = this.manager.concealedCableRunsAt(endpoint);
-            for (ConcealedCableRun run : runs) {
-                removeConcealedCableRun(run.id());
-                changed = true;
-            }
-        }
-
-        if (changed)
-            setDirty();
     }
 
     public void addConcealedCableRun(ConcealedCableRun run) {
