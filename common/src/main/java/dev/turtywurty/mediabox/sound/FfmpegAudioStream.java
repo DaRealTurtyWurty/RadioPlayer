@@ -1,6 +1,8 @@
 package dev.turtywurty.mediabox.sound;
 
 import dev.turtywurty.mediabox.MediaBox;
+import dev.turtywurty.mediabox.ffmpeg.FfmpegNatives;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.util.Util;
 import org.jspecify.annotations.NonNull;
@@ -10,8 +12,7 @@ import javax.sound.sampled.AudioFormat;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -19,8 +20,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 public final class FfmpegAudioStream implements AudioStream {
+    private static final int DEFAULT_SAMPLE_RATE = 44_100;
     private static final int INITIAL_PCM_BYTES = 3_840;
     private static final long STARTUP_TIMEOUT_SECONDS = 10;
+    private static final long FFPROBE_TIMEOUT_SECONDS = 10;
 
     private final Process process;
     private final InputStream pcm;
@@ -28,41 +31,23 @@ public final class FfmpegAudioStream implements AudioStream {
     private byte[] initialPcm;
     private int initialPcmOffset;
 
-    private FfmpegAudioStream(Process process, int sampleRate, String url) throws IOException {
+    private FfmpegAudioStream(Process process, int sampleRate, String mediaLocation) throws IOException {
         this.process = process;
         this.pcm = process.getInputStream();
         this.format = new AudioFormat(sampleRate, 16, 1, true, false);
-        this.initialPcm = readInitialPcm(url);
+        this.initialPcm = readInitialPcm(mediaLocation);
     }
 
-    public static AudioStream tryCreate(String url, int sampleRate) throws IOException {
-        String configuredPath = MediaBox.config().ffmpegExecutablePath;
-        if (configuredPath == null || configuredPath.isBlank()) {
-            MediaBox.LOGGER.warn("Lavaplayer cannot play {}; no FFmpeg executable is configured", url);
-            return null;
-        }
-
-        Path executable;
-        try {
-            executable = Path.of(configuredPath.trim()).toAbsolutePath();
-        } catch (InvalidPathException exception) {
-            MediaBox.LOGGER.warn("Configured FFmpeg path is invalid: {}", configuredPath, exception);
-            return null;
-        }
-
-        if (!Files.isRegularFile(executable)) {
-            MediaBox.LOGGER.warn("Configured FFmpeg executable does not exist: {}", executable);
-            return null;
-        }
-
-        MediaBox.LOGGER.info("Lavaplayer cannot play {}; trying configured FFmpeg at {}", url, executable);
+    public static AudioStream open(String mediaLocation) throws IOException {
+        Path ffmpeg = FfmpegNatives.requireFfmpeg(Minecraft.getInstance().gameDirectory.toPath());
+        int sampleRate = detectSampleRate(mediaLocation);
         Process process = new ProcessBuilder(
-                executable.toString(),
+                ffmpeg.toString(),
                 "-nostdin",
                 "-hide_banner",
                 "-loglevel", "error",
                 "-rw_timeout", "5000000",
-                "-i", url,
+                "-i", mediaLocation,
                 "-map", "0:a:0",
                 "-vn",
                 "-ac", "1",
@@ -73,16 +58,97 @@ public final class FfmpegAudioStream implements AudioStream {
                 .start();
 
         try {
-            var stream = new FfmpegAudioStream(process, sampleRate, url);
-            MediaBox.LOGGER.info("FFmpeg fallback is decoding audio stream: {}", url);
+            var stream = new FfmpegAudioStream(process, sampleRate, mediaLocation);
+            MediaBox.LOGGER.info("FFmpeg is decoding audio stream at {} Hz: {}", sampleRate, mediaLocation);
             return stream;
-        } catch (IOException exception) {
+        } catch (IOException | RuntimeException exception) {
             process.destroyForcibly();
+            logFfprobeDiagnostics(mediaLocation);
             throw exception;
         }
     }
 
-    private byte[] readInitialPcm(String url) throws IOException {
+    public static void validate(String mediaLocation) throws IOException {
+        MediaBox.LOGGER.info("Validating audio stream with FFmpeg: {}", mediaLocation);
+        try (AudioStream _ = open(mediaLocation)) {
+            // Opening the stream and receiving initial PCM proves that FFmpeg can decode it.
+            MediaBox.LOGGER.info("Audio stream validation succeeded: {}", mediaLocation);
+        } catch (IOException | RuntimeException exception) {
+            MediaBox.LOGGER.warn("Audio stream validation failed: {}", mediaLocation, exception);
+            throw exception;
+        }
+    }
+
+    private static int detectSampleRate(String mediaLocation) throws IOException {
+        Path ffprobe = FfmpegNatives.requireFfprobe(Minecraft.getInstance().gameDirectory.toPath());
+        try {
+            Process process = new ProcessBuilder(
+                    ffprobe.toString(),
+                    "-v", "error",
+                    "-rw_timeout", "5000000",
+                    "-select_streams", "a:0",
+                    "-show_entries", "stream=sample_rate",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    mediaLocation)
+                    .redirectErrorStream(true)
+                    .start();
+
+            if (!process.waitFor(FFPROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                throw new IOException("FFprobe timed out");
+            }
+
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            if (process.exitValue() != 0)
+                throw new IOException("FFprobe exited with code " + process.exitValue() + ": " + output);
+
+            int sampleRate = Integer.parseInt(output.lines().findFirst().orElse(""));
+            if (sampleRate > 0) {
+                MediaBox.LOGGER.info("FFprobe detected {} Hz audio for {}", sampleRate, mediaLocation);
+                return sampleRate;
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while probing " + mediaLocation, exception);
+        } catch (IOException | NumberFormatException exception) {
+            MediaBox.LOGGER.warn("Could not detect the sample rate with FFprobe for {}; using {} Hz", mediaLocation,
+                    DEFAULT_SAMPLE_RATE, exception);
+        }
+
+        return DEFAULT_SAMPLE_RATE;
+    }
+
+    private static void logFfprobeDiagnostics(String mediaLocation) {
+        try {
+            Path ffprobe = FfmpegNatives.requireFfprobe(Minecraft.getInstance().gameDirectory.toPath());
+            Process process = new ProcessBuilder(
+                    ffprobe.toString(),
+                    "-v", "error",
+                    "-rw_timeout", "5000000",
+                    "-show_entries", "format=format_name,format_long_name:stream=codec_type,codec_name,profile,sample_rate",
+                    "-of", "default=noprint_wrappers=1",
+                    mediaLocation)
+                    .redirectErrorStream(true)
+                    .start();
+
+            if (!process.waitFor(FFPROBE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                MediaBox.LOGGER.warn("FFprobe diagnostic timed out for {}", mediaLocation);
+                return;
+            }
+
+            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            MediaBox.LOGGER.warn("FFprobe diagnostic for {} (exit {}): {}", mediaLocation, process.exitValue(),
+                    output.isEmpty() ? "no metadata returned" : output);
+        } catch (IOException | InterruptedException exception) {
+            if (exception instanceof InterruptedException)
+                Thread.currentThread().interrupt();
+
+            MediaBox.LOGGER.warn("Could not collect FFprobe diagnostics for {}", mediaLocation, exception);
+        }
+    }
+
+    private byte[] readInitialPcm(String mediaLocation) throws IOException {
         try {
             byte[] bytes = CompletableFuture.supplyAsync(() -> {
                 try {
@@ -94,12 +160,12 @@ public final class FfmpegAudioStream implements AudioStream {
             if (bytes.length == INITIAL_PCM_BYTES)
                 return bytes;
 
-            throw new IOException("FFmpeg exited before producing audio for " + url);
+            throw new IOException("FFmpeg exited before producing audio for " + mediaLocation);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IOException("Interrupted while waiting for FFmpeg audio", exception);
         } catch (TimeoutException exception) {
-            throw new IOException("FFmpeg timed out before producing audio for " + url, exception);
+            throw new IOException("FFmpeg timed out before producing audio for " + mediaLocation, exception);
         } catch (ExecutionException exception) {
             Throwable cause = exception.getCause();
             if (cause instanceof FfmpegReadException readException)

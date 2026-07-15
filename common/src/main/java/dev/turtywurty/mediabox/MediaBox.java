@@ -2,10 +2,12 @@ package dev.turtywurty.mediabox;
 
 import dev.turtywurty.mediabox.block.ModBlockEntities;
 import dev.turtywurty.mediabox.block.ModBlocks;
+import dev.turtywurty.mediabox.ffmpeg.FfmpegNatives;
 import dev.turtywurty.mediabox.item.ModItems;
 import dev.turtywurty.mediabox.network.UpdateRadioUrlMessage;
 import net.blay09.mods.balm.Balm;
 import net.blay09.mods.balm.core.BalmRegistrars;
+import net.blay09.mods.balm.platform.event.callback.ServerLifecycleCallback;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,12 +23,8 @@ public class MediaBox {
         return Identifier.fromNamespaceAndPath(MOD_ID, path);
     }
 
-    public static MediaBoxConfig config() {
-        return Balm.config().getActiveConfig(MediaBoxConfig.class);
-    }
-
     public static void initialize(BalmRegistrars registrars) {
-        Balm.config().registerConfig(MediaBoxConfig.class);
+        ServerLifecycleCallback.Starting.EVENT.register(server -> FfmpegNatives.extract(server.getServerDirectory()));
 
         registrars.blocks(ModBlocks::initialize);
         registrars.items(ModItems::initialize);

@@ -3,7 +3,7 @@ package dev.turtywurty.mediabox.client.gui;
 import dev.turtywurty.mediabox.MediaBox;
 import dev.turtywurty.mediabox.SavedRadioStation;
 import dev.turtywurty.mediabox.network.UpdateRadioUrlMessage;
-import dev.turtywurty.mediabox.sound.LavaPlayerAudioStream;
+import dev.turtywurty.mediabox.sound.FfmpegAudioStream;
 import net.blay09.mods.balm.Balm;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -370,7 +370,7 @@ public class RadioPlayerScreen extends Screen {
         updateActionButtons();
         CompletableFuture.runAsync(() -> {
             try {
-                LavaPlayerAudioStream.validate(station);
+                FfmpegAudioStream.validate(station);
             } catch (IOException exception) {
                 throw new RuntimeException(exception);
             }

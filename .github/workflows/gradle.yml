@@ -10,8 +10,16 @@ on:
   pull_request:
 
 jobs:
-  build:
+  macos-natives:
+    uses: ./.github/workflows/build-macos-ffmpeg.yml
+    with:
+      ffmpeg_version: "n8.1.2"
+      publish_release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+    permissions:
+      contents: write
 
+  build:
+    needs: macos-natives
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,5 +40,12 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4.0.0
 
+    - name: Download macOS FFmpeg natives
+      uses: actions/download-artifact@v4
+      with:
+        pattern: ffmpeg-macos-*
+        path: ${{ runner.temp }}/mediabox-ffmpeg
+        merge-multiple: true
+
     - name: Build with Gradle Wrapper
-      run: ./gradlew build
+      run: ./gradlew build -PffmpegDownloadDir="${{ runner.temp }}/mediabox-ffmpeg"
