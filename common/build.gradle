@@ -107,7 +107,12 @@ if (selectedPlatformIds != null && ffmpegNatives.size() != selectedPlatformIds.s
     throw new GradleException("Unknown FFmpeg platform(s): ${unknownPlatformIds.join(', ')}")
 }
 
-def ffmpegDownloadDir = layout.buildDirectory.dir('ffmpeg/downloads')
+def defaultFfmpegDownloadDir = layout.buildDirectory.dir('ffmpeg/downloads').map { it.asFile }
+def ffmpegDownloadDir = layout.dir(
+        providers.gradleProperty('ffmpegDownloadDir')
+                .map { rootProject.file(it) }
+                .orElse(defaultFfmpegDownloadDir)
+)
 def ffmpegResourceRootDir = layout.buildDirectory.dir('generated/ffmpegResources')
 
 static String sha256(File file) {

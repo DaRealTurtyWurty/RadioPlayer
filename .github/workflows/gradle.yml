@@ -44,8 +44,8 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         pattern: ffmpeg-macos-*
-        path: common/build/ffmpeg/downloads
+        path: ${{ runner.temp }}/mediabox-ffmpeg
         merge-multiple: true
 
     - name: Build with Gradle Wrapper
-      run: ./gradlew build
+      run: ./gradlew build -PffmpegDownloadDir="${{ runner.temp }}/mediabox-ffmpeg"
