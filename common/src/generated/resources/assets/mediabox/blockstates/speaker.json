@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "mediabox:block/speaker",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediabox:block/speaker"
+    },
+    "facing=north_east": {
+      "model": "mediabox:block/speaker",
+      "y": 90
+    },
+    "facing=north_west": {
+      "model": "mediabox:block/speaker"
+    },
+    "facing=south": {
+      "model": "mediabox:block/speaker",
+      "y": 180
+    },
+    "facing=south_east": {
+      "model": "mediabox:block/speaker",
+      "y": 180
+    },
+    "facing=south_west": {
+      "model": "mediabox:block/speaker",
+      "y": 270
+    },
+    "facing=west": {
+      "model": "mediabox:block/speaker",
+      "y": 270
+    }
+  }
+}

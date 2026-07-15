@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "mediabox:block/bass_reflex_speaker",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediabox:block/bass_reflex_speaker"
+    },
+    "facing=north_east": {
+      "model": "mediabox:block/bass_reflex_speaker",
+      "y": 90
+    },
+    "facing=north_west": {
+      "model": "mediabox:block/bass_reflex_speaker"
+    },
+    "facing=south": {
+      "model": "mediabox:block/bass_reflex_speaker",
+      "y": 180
+    },
+    "facing=south_east": {
+      "model": "mediabox:block/bass_reflex_speaker",
+      "y": 180
+    },
+    "facing=south_west": {
+      "model": "mediabox:block/bass_reflex_speaker",
+      "y": 270
+    },
+    "facing=west": {
+      "model": "mediabox:block/bass_reflex_speaker",
+      "y": 270
+    }
+  }
+}

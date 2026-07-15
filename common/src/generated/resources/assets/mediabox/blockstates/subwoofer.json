@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "mediabox:block/subwoofer",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediabox:block/subwoofer"
+    },
+    "facing=north_east": {
+      "model": "mediabox:block/subwoofer",
+      "y": 90
+    },
+    "facing=north_west": {
+      "model": "mediabox:block/subwoofer"
+    },
+    "facing=south": {
+      "model": "mediabox:block/subwoofer",
+      "y": 180
+    },
+    "facing=south_east": {
+      "model": "mediabox:block/subwoofer",
+      "y": 180
+    },
+    "facing=south_west": {
+      "model": "mediabox:block/subwoofer",
+      "y": 270
+    },
+    "facing=west": {
+      "model": "mediabox:block/subwoofer",
+      "y": 270
+    }
+  }
+}
