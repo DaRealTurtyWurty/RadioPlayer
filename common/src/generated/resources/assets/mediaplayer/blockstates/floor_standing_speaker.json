@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "mediaplayer:block/floor_standing_speaker",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediaplayer:block/floor_standing_speaker"
+    },
+    "facing=north_east": {
+      "model": "mediaplayer:block/floor_standing_speaker",
+      "y": 90
+    },
+    "facing=north_west": {
+      "model": "mediaplayer:block/floor_standing_speaker"
+    },
+    "facing=south": {
+      "model": "mediaplayer:block/floor_standing_speaker",
+      "y": 180
+    },
+    "facing=south_east": {
+      "model": "mediaplayer:block/floor_standing_speaker",
+      "y": 180
+    },
+    "facing=south_west": {
+      "model": "mediaplayer:block/floor_standing_speaker",
+      "y": 270
+    },
+    "facing=west": {
+      "model": "mediaplayer:block/floor_standing_speaker",
+      "y": 270
+    }
+  }
+}

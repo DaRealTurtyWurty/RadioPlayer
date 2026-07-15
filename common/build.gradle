@@ -138,7 +138,7 @@ tasks.register('downloadFfprobeNatives') {
                 def connection = nativeBin.url.toURL().openConnection()
                 connection.connectTimeout = 30_000
                 connection.readTimeout = 120_000
-                connection.setRequestProperty('User-Agent', 'RadioPlayer Gradle build')
+                connection.setRequestProperty('User-Agent', 'Media Player Gradle build')
 
                 try {
                     connection.inputStream.withCloseable { input ->
