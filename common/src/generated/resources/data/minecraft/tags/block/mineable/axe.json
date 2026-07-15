@@ -1,12 +1,12 @@
 {
   "values": [
-    "mediaplayer:radio_player",
-    "mediaplayer:globe",
-    "mediaplayer:speaker",
-    "mediaplayer:bass_reflex_speaker",
-    "mediaplayer:horn_speaker",
-    "mediaplayer:bookshelf_speaker",
-    "mediaplayer:floor_standing_speaker",
-    "mediaplayer:subwoofer"
+    "mediabox:radio_player",
+    "mediabox:globe",
+    "mediabox:speaker",
+    "mediabox:bass_reflex_speaker",
+    "mediabox:horn_speaker",
+    "mediabox:bookshelf_speaker",
+    "mediabox:floor_standing_speaker",
+    "mediabox:subwoofer"
   ]
 }

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "mediabox:block/globe",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediabox:block/globe"
+    },
+    "facing=south": {
+      "model": "mediabox:block/globe",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "mediabox:block/globe",
+      "y": 270
+    }
+  }
+}
