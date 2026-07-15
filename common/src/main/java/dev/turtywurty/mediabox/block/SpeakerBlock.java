@@ -1,12 +1,19 @@
 package dev.turtywurty.mediabox.block;
 
 import dev.turtywurty.mediabox.sound.SpeakerType;
+import dev.turtywurty.mediabox.cable.CableSavedData;
+import dev.turtywurty.mediabox.cable.PortEndpoint;
+import dev.turtywurty.mediabox.cable.CableSync;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityTicker;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
@@ -49,6 +56,18 @@ public class SpeakerBlock extends Block implements EntityBlock {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
+    public <T extends BlockEntity> BlockEntityTicker<T> getTicker(
+            Level level,
+            BlockState state,
+            BlockEntityType<T> blockEntityType) {
+        if (level.isClientSide() || blockEntityType != ModBlockEntities.speaker.value())
+            return null;
+
+        return (BlockEntityTicker<T>) (BlockEntityTicker<SpeakerBlockEntity>) SpeakerBlockEntity::serverTick;
+    }
+
+    @Override
     protected @NonNull VoxelShape getShape(BlockState state, @NonNull BlockGetter level, @NonNull BlockPos pos, @NonNull CollisionContext context) {
         return this.shapes.get(state.getValue(FACING).nearestCardinal());
     }
@@ -77,5 +96,19 @@ public class SpeakerBlock extends Block implements EntityBlock {
     protected void createBlockStateDefinition(StateDefinition.@NonNull Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(FACING);
+    }
+
+    @Override
+    protected void affectNeighborsAfterRemoval(
+            BlockState state,
+            ServerLevel level,
+            BlockPos pos,
+            boolean movedByPiston) {
+        CableSavedData.get(level).removePort(new PortEndpoint(
+                level.dimension(),
+                pos,
+                SpeakerBlockEntity.AUDIO_INPUT_PORT_ID), false);
+        CableSync.broadcastSnapshot(level);
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
     }
 }

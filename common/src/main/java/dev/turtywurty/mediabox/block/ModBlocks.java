@@ -24,6 +24,7 @@ public class ModBlocks {
     public static DeferredBlock hornSpeaker;
     public static DeferredBlock bookshelfSpeaker;
     public static DeferredBlock floorStandingSpeaker;
+    public static DeferredBlock cablePort;
 
     public static void initialize(BalmBlockRegistrar blocks) {
         radioPlayer = blocks.register("radio_player", RadioPlayerBlock::new, it ->
@@ -52,6 +53,15 @@ public class ModBlocks {
         hornSpeaker = registerSpeaker(blocks, "horn_speaker", SpeakerType.HORN, Shapes.block());
         bookshelfSpeaker = registerSpeakerLike(blocks, "bookshelf_speaker", BookshelfSpeakerBlock::new);
         floorStandingSpeaker = registerSpeakerLike(blocks, "floor_standing_speaker", FloorStandingSpeakerBlock::new);
+
+        cablePort = blocks.register("cable_port", CablePortBlock::new, it ->
+                        it.mapColor(MapColor.METAL)
+                                .strength(0.5F)
+                                .sound(SoundType.METAL)
+                                .noOcclusion()
+                                .instabreak())
+                .withItem(BlockItem::new)
+                .asDeferredBlock();
     }
 
     private static DeferredBlock registerSpeaker(BalmBlockRegistrar blocks, String name, SpeakerType speakerType,

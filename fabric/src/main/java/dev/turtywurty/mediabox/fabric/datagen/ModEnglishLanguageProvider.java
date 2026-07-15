@@ -4,6 +4,7 @@ import dev.turtywurty.mediabox.block.ModBlocks;
 import dev.turtywurty.mediabox.client.gui.GlobeScreen;
 import dev.turtywurty.mediabox.client.gui.RadioPlayerScreen;
 import dev.turtywurty.mediabox.client.gui.widget.StationListWidget;
+import dev.turtywurty.mediabox.item.ModItems;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider;
 import net.minecraft.core.HolderLookup;
@@ -45,6 +46,8 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         translationBuilder.add(ModBlocks.bookshelfSpeaker.asBlock(), "Bookshelf Speaker");
         translationBuilder.add(ModBlocks.floorStandingSpeaker.asBlock(), "Floor-Standing Speaker");
         translationBuilder.add(ModBlocks.subwoofer.asBlock(), "Subwoofer");
+        translationBuilder.add(ModBlocks.cablePort.asBlock(), "Cable Port");
+        translationBuilder.add(ModItems.audioCable.asItem(), "Audio Cable");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {

@@ -6,6 +6,7 @@ import dev.turtywurty.mediabox.block.HorizontalDirection8;
 import dev.turtywurty.mediabox.block.ModBlocks;
 import dev.turtywurty.mediabox.block.RadioPlayerBlock;
 import dev.turtywurty.mediabox.block.SpeakerBlock;
+import dev.turtywurty.mediabox.item.ModItems;
 import net.fabricmc.fabric.api.client.datagen.v1.provider.FabricModelProvider;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.minecraft.client.data.models.BlockModelGenerators;
@@ -14,6 +15,7 @@ import net.minecraft.client.data.models.MultiVariant;
 import net.minecraft.client.data.models.blockstates.MultiVariantGenerator;
 import net.minecraft.client.data.models.blockstates.PropertyDispatch;
 import net.minecraft.client.data.models.model.ItemModelUtils;
+import net.minecraft.client.data.models.model.ModelTemplates;
 import net.minecraft.client.renderer.block.dispatch.Variant;
 import net.minecraft.core.Direction;
 import net.minecraft.util.random.WeightedList;
@@ -109,6 +111,8 @@ public class ModModelProvider extends FabricModelProvider {
         speakerItemModel(itemModelGenerators, ModBlocks.bookshelfSpeaker.asBlock().asItem(), "bookshelf_speaker");
         speakerItemModel(itemModelGenerators, ModBlocks.floorStandingSpeaker.asBlock().asItem(), "floor_standing_speaker");
         speakerItemModel(itemModelGenerators, ModBlocks.subwoofer.asBlock().asItem(), "subwoofer");
+
+        itemModelGenerators.generateFlatItem(ModItems.audioCable.asItem(), ModelTemplates.FLAT_ITEM);
     }
 
     private static void speakerItemModel(ItemModelGenerators itemModelGenerators, Item item,

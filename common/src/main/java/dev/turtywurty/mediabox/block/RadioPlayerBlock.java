@@ -2,13 +2,20 @@ package dev.turtywurty.mediabox.block;
 
 import dev.turtywurty.mediabox.api.client.MediaBoxClientAPI;
 import dev.turtywurty.mediabox.block.entity.RadioPlayerBlockEntity;
+import dev.turtywurty.mediabox.cable.CableSavedData;
+import dev.turtywurty.mediabox.cable.PortEndpoint;
+import dev.turtywurty.mediabox.cable.CableSync;
+import dev.turtywurty.mediabox.item.AudioCableItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -52,6 +59,21 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
     }
 
     @Override
+    protected @NonNull InteractionResult useItemOn(
+            @NonNull ItemStack stack,
+            @NonNull BlockState state,
+            @NonNull Level level,
+            @NonNull BlockPos pos,
+            @NonNull Player player,
+            @NonNull InteractionHand hand,
+            @NonNull BlockHitResult hitResult) {
+        if (stack.getItem() instanceof AudioCableItem)
+            return InteractionResult.PASS;
+
+        return super.useItemOn(stack, state, level, pos, player, hand, hitResult);
+    }
+
+    @Override
     protected @NonNull InteractionResult useWithoutItem(@NonNull BlockState state, Level level, @NonNull BlockPos pos, @NonNull Player player, @NonNull BlockHitResult hitResult) {
         if (level.isClientSide() && level.getBlockEntity(pos) instanceof RadioPlayerBlockEntity radioPlayer) {
             MediaBoxClientAPI.openRadioPlayerScreen(pos, radioPlayer.getUrl(), radioPlayer.isPlaying(), radioPlayer.getSavedStations());
@@ -89,5 +111,19 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
     protected void createBlockStateDefinition(StateDefinition.@NonNull Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
         builder.add(FACING);
+    }
+
+    @Override
+    protected void affectNeighborsAfterRemoval(
+            BlockState state,
+            ServerLevel level,
+            BlockPos pos,
+            boolean movedByPiston) {
+        CableSavedData.get(level).removePort(new PortEndpoint(
+                level.dimension(),
+                pos,
+                RadioPlayerBlockEntity.AUDIO_OUTPUT_PORT_ID), false);
+        CableSync.broadcastSnapshot(level);
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
     }
 }

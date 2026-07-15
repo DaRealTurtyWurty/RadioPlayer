@@ -1,0 +1,28 @@
+{
+  "multipart": [
+    {
+      "when": { "facing": "north" },
+      "apply": { "model": "mediabox:block/cable_port" }
+    },
+    {
+      "when": { "facing": "east" },
+      "apply": { "model": "mediabox:block/cable_port", "y": 270 }
+    },
+    {
+      "when": { "facing": "south" },
+      "apply": { "model": "mediabox:block/cable_port", "y": 180 }
+    },
+    {
+      "when": { "facing": "west" },
+      "apply": { "model": "mediabox:block/cable_port", "y": 90 }
+    },
+    {
+      "when": { "facing": "up" },
+      "apply": { "model": "mediabox:block/cable_port", "x": 90 }
+    },
+    {
+      "when": { "facing": "down" },
+      "apply": { "model": "mediabox:block/cable_port", "x": 270 }
+    }
+  ]
+}
