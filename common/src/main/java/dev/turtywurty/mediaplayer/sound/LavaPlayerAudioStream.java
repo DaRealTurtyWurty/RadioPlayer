@@ -69,12 +69,12 @@ public class LavaPlayerAudioStream implements AudioStream {
     }
 
     public static void validate(String url) throws IOException {
-        MediaPlayer.LOGGER.info("Validating radio stream: {}", url);
+        MediaPlayer.LOGGER.info("Validating audio stream: {}", url);
         try (AudioStream _ = open(url)) {
             // Opening the stream and receiving an initial frame proves the URL is playable (via Lavaplayer or the optional FFmpeg fallback).
-            MediaPlayer.LOGGER.info("Radio stream validation succeeded: {}", url);
+            MediaPlayer.LOGGER.info("Audio stream validation succeeded: {}", url);
         } catch (IOException | RuntimeException exception) {
-            MediaPlayer.LOGGER.warn("Radio stream validation failed: {}", url, exception);
+            MediaPlayer.LOGGER.warn("Audio stream validation failed: {}", url, exception);
             logFfprobeDiagnostics(url);
             throw exception;
         }
@@ -93,12 +93,12 @@ public class LavaPlayerAudioStream implements AudioStream {
         try {
             item = playerManager.loadItemSync(url);
         } catch (RuntimeException exception) {
-            MediaPlayer.LOGGER.warn("Lavaplayer failed while resolving radio stream: {}", url, exception);
+            MediaPlayer.LOGGER.warn("Lavaplayer failed while resolving audio stream: {}", url, exception);
             throw exception;
         }
 
         if (item instanceof AudioTrack track) {
-            MediaPlayer.LOGGER.info("Lavaplayer resolved radio stream as track: {} ({} ms)", track.getInfo().title,
+            MediaPlayer.LOGGER.info("Lavaplayer resolved audio stream as track: {} ({} ms)", track.getInfo().title,
                     track.getDuration());
             return track;
         }
@@ -118,9 +118,9 @@ public class LavaPlayerAudioStream implements AudioStream {
                 return tracks.getFirst();
             }
 
-            MediaPlayer.LOGGER.warn("Lavaplayer resolved an empty playlist for radio stream: {}", url);
+            MediaPlayer.LOGGER.warn("Lavaplayer resolved an empty playlist for audio stream: {}", url);
         } else {
-            MediaPlayer.LOGGER.warn("Lavaplayer did not resolve a radio track for {} (result type: {})", url,
+            MediaPlayer.LOGGER.warn("Lavaplayer did not resolve an audio track for {} (result type: {})", url,
                     item == null ? "none" : item.getClass().getName());
         }
 

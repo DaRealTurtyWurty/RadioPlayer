@@ -1,6 +1,6 @@
 package dev.turtywurty.mediaplayer.block;
 
-import dev.turtywurty.mediaplayer.block.entity.RadioPlayerBlockEntity;
+import dev.turtywurty.mediaplayer.sound.AudioSourceProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -20,10 +20,9 @@ import org.jspecify.annotations.Nullable;
 import java.util.Objects;
 
 public class SpeakerBlockEntity extends BlockEntity {
-    private static final int RADIO_SEARCH_RADIUS = 8;
-    private static final String LINKED_RADIO_POS_TAG = "linked_radio_pos";
+    private static final int SOURCE_SEARCH_RADIUS = 8; // temp until we have a wiring system
 
-    private @Nullable BlockPos linkedRadioPos;
+    private @Nullable BlockPos linkedSourcePos;
 
     public SpeakerBlockEntity(BlockPos pos, BlockState state) {
         this(ModBlockEntities.speaker.value(), pos, state);
@@ -33,20 +32,20 @@ public class SpeakerBlockEntity extends BlockEntity {
         super(type, pos, state);
     }
 
-    private static boolean isUsableSource(RadioPlayerBlockEntity radio) {
-        return radio.isPlaying() && !radio.getUrl().isBlank();
+    private static boolean isUsableSource(AudioSourceProvider source) {
+        return source.getAudioPlaybackState().isPlayable();
     }
 
-    public @Nullable BlockPos getLinkedRadioPos() {
-        return this.linkedRadioPos;
+    public @Nullable BlockPos getLinkedSourcePos() {
+        return this.linkedSourcePos;
     }
 
-    public void setLinkedRadioPos(@Nullable BlockPos linkedRadioPos) {
-        BlockPos immutablePos = linkedRadioPos == null ? null : linkedRadioPos.immutable();
-        if (Objects.equals(immutablePos, this.linkedRadioPos))
+    public void setLinkedSourcePos(@Nullable BlockPos linkedSourcePos) {
+        BlockPos immutablePos = linkedSourcePos == null ? null : linkedSourcePos.immutable();
+        if (Objects.equals(immutablePos, this.linkedSourcePos))
             return;
 
-        this.linkedRadioPos = immutablePos;
+        this.linkedSourcePos = immutablePos;
         update();
     }
 
@@ -54,15 +53,15 @@ public class SpeakerBlockEntity extends BlockEntity {
     protected void saveAdditional(@NonNull ValueOutput output) {
         super.saveAdditional(output);
 
-        if (this.linkedRadioPos != null) {
-            output.store(LINKED_RADIO_POS_TAG, BlockPos.CODEC, this.linkedRadioPos);
+        if (this.linkedSourcePos != null) {
+            output.store("LinkedSourcePos", BlockPos.CODEC, this.linkedSourcePos);
         }
     }
 
     @Override
     protected void loadAdditional(@NonNull ValueInput input) {
         super.loadAdditional(input);
-        this.linkedRadioPos = input.read(LINKED_RADIO_POS_TAG, BlockPos.CODEC)
+        this.linkedSourcePos = input.read("LinkedSourcePos", BlockPos.CODEC)
                 .map(BlockPos::immutable)
                 .orElse(null);
     }
@@ -77,42 +76,42 @@ public class SpeakerBlockEntity extends BlockEntity {
         return saveCustomOnly(registries);
     }
 
-    public @Nullable RadioPlayerBlockEntity findSourceRadio() {
+    public @Nullable AudioSourceProvider findAudioSource() {
         Level level = getLevel();
         if (level == null)
             return null;
 
-        if (this.linkedRadioPos != null) {
-            BlockEntity blockEntity = level.getBlockEntity(this.linkedRadioPos);
-            if (!(blockEntity instanceof RadioPlayerBlockEntity radio)) {
-                setLinkedRadioPos(null);
+        if (this.linkedSourcePos != null) {
+            BlockEntity blockEntity = level.getBlockEntity(this.linkedSourcePos);
+            if (!(blockEntity instanceof AudioSourceProvider source)) {
+                setLinkedSourcePos(null);
                 return null;
             }
 
-            return isUsableSource(radio) ? radio : null;
+            return isUsableSource(source) ? source : null;
         }
 
-        RadioPlayerBlockEntity closestRadio = null;
+        AudioSourceProvider closestSource = null;
         double closestDistance = Double.MAX_VALUE;
 
         for (BlockPos pos : BlockPos.betweenClosed(
-                this.worldPosition.offset(-RADIO_SEARCH_RADIUS, -RADIO_SEARCH_RADIUS, -RADIO_SEARCH_RADIUS),
-                this.worldPosition.offset(RADIO_SEARCH_RADIUS, RADIO_SEARCH_RADIUS, RADIO_SEARCH_RADIUS))) {
-            if (!(level.getBlockEntity(pos) instanceof RadioPlayerBlockEntity radio) || !isUsableSource(radio))
+                this.worldPosition.offset(-SOURCE_SEARCH_RADIUS, -SOURCE_SEARCH_RADIUS, -SOURCE_SEARCH_RADIUS),
+                this.worldPosition.offset(SOURCE_SEARCH_RADIUS, SOURCE_SEARCH_RADIUS, SOURCE_SEARCH_RADIUS))) {
+            if (!(level.getBlockEntity(pos) instanceof AudioSourceProvider source) || !isUsableSource(source))
                 continue;
 
             double distance = pos.distSqr(this.worldPosition);
             if (distance < closestDistance) {
-                closestRadio = radio;
+                closestSource = source;
                 closestDistance = distance;
             }
         }
 
-        if (closestRadio != null) {
-            setLinkedRadioPos(closestRadio.getBlockPos());
+        if (closestSource != null) {
+            setLinkedSourcePos(closestSource.getAudioSourcePos());
         }
 
-        return closestRadio;
+        return closestSource;
     }
 
     private void update() {

@@ -1,9 +1,9 @@
 package dev.turtywurty.mediaplayer.mixin;
 
-import dev.turtywurty.mediaplayer.sound.LavaPlayerAudioStream;
-import dev.turtywurty.mediaplayer.sound.RadioAudioSource;
-import dev.turtywurty.mediaplayer.sound.RadioMixerAudioStream;
-import dev.turtywurty.mediaplayer.sound.RadioSoundInstance;
+import dev.turtywurty.mediaplayer.sound.AudioStreamDecoders;
+import dev.turtywurty.mediaplayer.sound.ClientAudioSource;
+import dev.turtywurty.mediaplayer.sound.MediaSoundInstance;
+import dev.turtywurty.mediaplayer.sound.SpatialMixerAudioStream;
 import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.SoundBufferLibrary;
 import net.minecraft.resources.Identifier;
@@ -22,17 +22,17 @@ public class SoundBufferLibraryMixin {
     @Inject(method = "getStream", at = @At("HEAD"), cancellable = true)
     private void mediaplayer$getStream(Identifier location, boolean looping,
                                        CallbackInfoReturnable<CompletableFuture<AudioStream>> cir) {
-        RadioAudioSource source = RadioAudioSource.getBySoundPath(location);
+        ClientAudioSource source = ClientAudioSource.getBySoundPath(location);
         if (source == null)
             return;
 
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
-                AudioStream decodedStream = LavaPlayerAudioStream.open(source.getUrl());
-                RadioSoundInstance.markReady(location);
-                return new RadioMixerAudioStream(source, decodedStream);
+                AudioStream decodedStream = AudioStreamDecoders.open(source.getMediaLocation());
+                MediaSoundInstance.markReady(location);
+                return new SpatialMixerAudioStream(source, decodedStream);
             } catch (IOException exception) {
-                throw new CompletionException("Failed to open audio stream for URL: " + source.getUrl(), exception);
+                throw new CompletionException("Failed to open media: " + source.getMediaLocation(), exception);
             }
         }, Util.nonCriticalIoPool()));
     }

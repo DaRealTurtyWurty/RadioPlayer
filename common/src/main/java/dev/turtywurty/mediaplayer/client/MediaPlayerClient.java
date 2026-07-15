@@ -1,6 +1,6 @@
 package dev.turtywurty.mediaplayer.client;
 
-import dev.turtywurty.mediaplayer.sound.RadioClientAudioManager;
+import dev.turtywurty.mediaplayer.sound.ClientAudioManager;
 import net.blay09.mods.balm.client.BalmClientRegistrars;
 import net.blay09.mods.balm.client.platform.event.callback.ClientTickCallback;
 
@@ -14,7 +14,7 @@ public class MediaPlayerClient {
                 extractedFfprobe = true;
             }
 
-            RadioClientAudioManager.tick(minecraft);
+            ClientAudioManager.tick(minecraft);
         });
     }
 }

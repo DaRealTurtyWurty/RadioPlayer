@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class RadioMixerAudioStream implements AudioStream {
+public class SpatialMixerAudioStream implements AudioStream {
     private static final int MAX_OUTPUT_BYTES = 4_096;
     private static final int OUTPUT_BUFFER_COUNT = 4;
     private static final float MIN_NORMALIZATION_GAIN = 1.0F;
@@ -25,14 +25,14 @@ public class RadioMixerAudioStream implements AudioStream {
 
     private final Map<EmitterKey, List<SpeakerDriverRuntime>> driversByEmitter = new HashMap<>();
 
-    private final RadioAudioSource source;
+    private final ClientAudioSource source;
     private final AudioStream decodedStream;
     private final AudioFormat inputFormat;
     private final AudioFormat outputFormat;
     private final ByteBuffer[] outputBuffers = new ByteBuffer[OUTPUT_BUFFER_COUNT];
     private int nextOutputBuffer;
 
-    public RadioMixerAudioStream(RadioAudioSource source, AudioStream decodedStream) {
+    public SpatialMixerAudioStream(ClientAudioSource source, AudioStream decodedStream) {
         this.source = source;
         this.decodedStream = decodedStream;
         this.inputFormat = decodedStream.getFormat();
@@ -47,7 +47,7 @@ public class RadioMixerAudioStream implements AudioStream {
                 !format.isBigEndian();
     }
 
-    private static SpatialGain calculateGain(RadioAudioEmitter emitter, RadioAudioSource source) {
+    private static SpatialGain calculateGain(AudioEmitter emitter, ClientAudioSource source) {
         Vec3 listenerPos = source.getListenerPos();
         Vec3 listenerRight = source.getListenerRight();
 
@@ -77,7 +77,7 @@ public class RadioMixerAudioStream implements AudioStream {
         return new SpatialGain(gain * leftPan, gain * rightPan);
     }
 
-    private static float calculateConeGain(RadioAudioEmitter emitter, Vec3 listenerPos, SpeakerProfile profile) {
+    private static float calculateConeGain(AudioEmitter emitter, Vec3 listenerPos, SpeakerProfile profile) {
         Vec3 emitterCenter = Vec3.atCenterOf(emitter.pos());
         Vec3 speakerForward = Vec3.atLowerCornerOf(emitter.getFacingNormal()).normalize();
         Vec3 speakerToListener = listenerPos.subtract(emitterCenter).normalize();
@@ -113,7 +113,7 @@ public class RadioMixerAudioStream implements AudioStream {
     }
 
     private ByteBuffer mix(ByteBuffer input) {
-        List<RadioAudioEmitter> emitters = this.source.getEmitters();
+        List<AudioEmitter> emitters = this.source.getEmitters();
         if (emitters.isEmpty() || !isMixableFormat(this.inputFormat))
             return input;
 
@@ -128,7 +128,7 @@ public class RadioMixerAudioStream implements AudioStream {
             float outRight = 0.0f;
             float totalGain = 0.0F;
 
-            for (RadioAudioEmitter emitter : emitters) {
+            for (AudioEmitter emitter : emitters) {
                 MixContribution contribution = calculateContribution(mono, emitter);
                 outLeft += contribution.left();
                 outRight += contribution.right();
@@ -161,7 +161,7 @@ public class RadioMixerAudioStream implements AudioStream {
         return ((inLeft / 32768.0f) + (inRight / 32768.0f)) / 2.0f;
     }
 
-    private MixContribution calculateContribution(float sample, RadioAudioEmitter emitter) {
+    private MixContribution calculateContribution(float sample, AudioEmitter emitter) {
         float emitterSample = processForEmitter(sample, emitter);
         SpatialGain gain = calculateGain(emitter, this.source);
         return new MixContribution(
@@ -170,7 +170,7 @@ public class RadioMixerAudioStream implements AudioStream {
                 Math.max(gain.left(), gain.right()));
     }
 
-    private float processForEmitter(float sample, RadioAudioEmitter emitter) {
+    private float processForEmitter(float sample, AudioEmitter emitter) {
         var context = new SpeakerProcessingContext(
                 this.outputFormat.getSampleRate(),
                 emitter
@@ -184,7 +184,7 @@ public class RadioMixerAudioStream implements AudioStream {
         return processed;
     }
 
-    private List<SpeakerDriverRuntime> getDriversFor(RadioAudioEmitter emitter) {
+    private List<SpeakerDriverRuntime> getDriversFor(AudioEmitter emitter) {
         return this.driversByEmitter.computeIfAbsent(EmitterKey.from(emitter), _ ->
                 emitter.type().profile().drivers().stream()
                         .map(SpeakerDriverRuntime::create)
@@ -222,7 +222,7 @@ public class RadioMixerAudioStream implements AudioStream {
     }
 
     private record EmitterKey(BlockPos pos, SpeakerType type) {
-        private static EmitterKey from(RadioAudioEmitter emitter) {
+        private static EmitterKey from(AudioEmitter emitter) {
             return new EmitterKey(emitter.pos(), emitter.type());
         }
     }

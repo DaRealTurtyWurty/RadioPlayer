@@ -11,21 +11,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public final class RadioAudioSource {
-    private static final Map<Identifier, RadioAudioSource> SOURCES_BY_SOUND_PATH = new ConcurrentHashMap<>();
-    private final BlockPos radioPos;
-    private String url;
-    private RadioSoundInstance sound;
-    private volatile List<RadioAudioEmitter> emitters = List.of();
+public final class ClientAudioSource {
+    private static final Map<Identifier, ClientAudioSource> SOURCES_BY_SOUND_PATH = new ConcurrentHashMap<>();
+    private final BlockPos sourcePos;
+    private final AudioPlaybackState playbackState;
+    private MediaSoundInstance sound;
+    private volatile List<AudioEmitter> emitters = List.of();
     private volatile Vec3 listenerPos = Vec3.ZERO;
     private volatile Vec3 listenerRight = new Vec3(1, 0, 0);
 
-    public RadioAudioSource(BlockPos radioPos, String url) {
-        this.radioPos = radioPos.immutable();
-        this.url = url;
+    public ClientAudioSource(BlockPos sourcePos, AudioPlaybackState playbackState) {
+        this.sourcePos = sourcePos.immutable();
+        this.playbackState = playbackState;
     }
 
-    public static @Nullable RadioAudioSource getBySoundPath(Identifier soundPath) {
+    public static @Nullable ClientAudioSource getBySoundPath(Identifier soundPath) {
         return SOURCES_BY_SOUND_PATH.get(soundPath);
     }
 
@@ -33,7 +33,7 @@ public final class RadioAudioSource {
         if (this.sound != null)
             return;
 
-        this.sound = new RadioSoundInstance(this.radioPos, this.url);
+        this.sound = new MediaSoundInstance(this.sourcePos, this.playbackState);
         SOURCES_BY_SOUND_PATH.put(this.sound.getSoundPath(), this);
         minecraft.getSoundManager().play(this.sound);
     }
@@ -47,8 +47,8 @@ public final class RadioAudioSource {
         }
     }
 
-    public boolean isFor(String url) {
-        return this.url.equals(url);
+    public boolean isFor(AudioPlaybackState playbackState) {
+        return this.playbackState.equals(playbackState);
     }
 
     public boolean shouldRestart(Minecraft minecraft) {
@@ -60,11 +60,11 @@ public final class RadioAudioSource {
         return this.sound != null && this.sound.isStreamReady();
     }
 
-    public void updateEmitters(List<RadioAudioEmitter> emitters) {
+    public void updateEmitters(List<AudioEmitter> emitters) {
         this.emitters = List.copyOf(emitters);
     }
 
-    public List<RadioAudioEmitter> getEmitters() {
+    public List<AudioEmitter> getEmitters() {
         return this.emitters;
     }
 
@@ -84,7 +84,7 @@ public final class RadioAudioSource {
         return this.listenerRight;
     }
 
-    public String getUrl() {
-        return this.url;
+    public String getMediaLocation() {
+        return this.playbackState.mediaLocation();
     }
 }

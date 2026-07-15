@@ -15,6 +15,7 @@ import org.jspecify.annotations.Nullable;
 public class RadioStaticSoundInstance implements TickableSoundInstance {
     private static final int FADE_OUT_TICKS = 20;
     private static final float BASE_VOLUME = 0.42F;
+    private static final Identifier SOUND_RESOURCE = MediaPlayer.id("radio_static");
 
     private final BlockPos radioPos;
     private final Identifier identifier;
@@ -30,7 +31,7 @@ public class RadioStaticSoundInstance implements TickableSoundInstance {
         this.radioPos = radioPos;
         this.identifier = MediaPlayer.id("radio_static/" + radioPos.asLong());
         this.sound = new Sound(
-                this.identifier,
+                SOUND_RESOURCE,
                 ConstantFloat.of(1.0F),
                 ConstantFloat.of(1.0F),
                 1,

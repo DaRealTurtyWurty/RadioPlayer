@@ -74,7 +74,7 @@ public final class FfmpegAudioStream implements AudioStream {
 
         try {
             var stream = new FfmpegAudioStream(process, sampleRate, url);
-            MediaPlayer.LOGGER.info("FFmpeg fallback is decoding radio stream: {}", url);
+            MediaPlayer.LOGGER.info("FFmpeg fallback is decoding audio stream: {}", url);
             return stream;
         } catch (IOException exception) {
             process.destroyForcibly();

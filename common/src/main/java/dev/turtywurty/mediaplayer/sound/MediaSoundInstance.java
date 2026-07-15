@@ -15,25 +15,24 @@ import org.jspecify.annotations.Nullable;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class RadioSoundInstance implements TickableSoundInstance {
-    private static final String STREAM_PATH = "radio_stream/";
+public class MediaSoundInstance implements TickableSoundInstance {
+    private static final String STREAM_PATH = "media_stream/";
     private static final long STARTUP_GRACE_PERIOD_MS = 3000L;
-    private static final Map<Identifier, String> URLS_BY_SOUND_PATH = new ConcurrentHashMap<>();
     private static final Map<Identifier, Boolean> READY_BY_SOUND_PATH = new ConcurrentHashMap<>();
 
-    private final BlockPos radioPos;
-    private final String url;
+    private final BlockPos sourcePos;
+    private final AudioPlaybackState playbackState;
     private final Identifier identifier;
     private final Sound sound;
     private final WeighedSoundEvents soundEvents;
     private final long createdAtMillis = System.currentTimeMillis();
     private boolean stopped;
 
-    public RadioSoundInstance(BlockPos radioPos, String url) {
-        this.radioPos = radioPos;
-        this.url = url;
+    public MediaSoundInstance(BlockPos sourcePos, AudioPlaybackState playbackState) {
+        this.sourcePos = sourcePos;
+        this.playbackState = playbackState;
 
-        this.identifier = MediaPlayer.id(STREAM_PATH + Long.toHexString(radioPos.asLong()) + "/" + Integer.toHexString(url.hashCode()));
+        this.identifier = MediaPlayer.id(STREAM_PATH + Long.toHexString(sourcePos.asLong()) + "/" + Integer.toHexString(playbackState.hashCode()));
         this.sound = new Sound(
                 this.identifier,
                 ConstantFloat.of(1.0F),
@@ -46,29 +45,23 @@ public class RadioSoundInstance implements TickableSoundInstance {
         this.soundEvents = new WeighedSoundEvents(this.identifier, null);
         this.soundEvents.addSound(this.sound);
 
-        URLS_BY_SOUND_PATH.put(this.sound.getPath(), this.url);
         READY_BY_SOUND_PATH.put(this.sound.getPath(), false);
-    }
-
-    public static @Nullable String getUrl(Identifier soundPath) {
-        return URLS_BY_SOUND_PATH.get(soundPath);
     }
 
     public static void markReady(Identifier soundPath) {
         READY_BY_SOUND_PATH.put(soundPath, true);
     }
 
-    public String getUrl() {
-        return this.url;
+    public String getMediaLocation() {
+        return this.playbackState.mediaLocation();
     }
 
-    public BlockPos getRadioPos() {
-        return this.radioPos;
+    public BlockPos getSourcePos() {
+        return this.sourcePos;
     }
 
     public void stop() {
         this.stopped = true;
-        URLS_BY_SOUND_PATH.remove(this.sound.getPath(), this.url);
         READY_BY_SOUND_PATH.remove(this.sound.getPath());
     }
 
@@ -112,7 +105,7 @@ public class RadioSoundInstance implements TickableSoundInstance {
 
     @Override
     public boolean isLooping() {
-        return false;
+        return this.playbackState.looping();
     }
 
     @Override
@@ -162,7 +155,7 @@ public class RadioSoundInstance implements TickableSoundInstance {
 
     @Override
     public boolean canPlaySound() {
-        return !this.stopped && !this.url.isBlank();
+        return !this.stopped && this.playbackState.isPlayable();
     }
 
     public Identifier getSoundPath() {

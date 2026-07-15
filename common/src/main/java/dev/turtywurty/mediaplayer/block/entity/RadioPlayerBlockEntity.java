@@ -3,6 +3,11 @@ package dev.turtywurty.mediaplayer.block.entity;
 import com.mojang.serialization.Codec;
 import dev.turtywurty.mediaplayer.SavedRadioStation;
 import dev.turtywurty.mediaplayer.block.ModBlockEntities;
+import dev.turtywurty.mediaplayer.block.RadioPlayerBlock;
+import dev.turtywurty.mediaplayer.sound.AudioEmitter;
+import dev.turtywurty.mediaplayer.sound.AudioPlaybackState;
+import dev.turtywurty.mediaplayer.sound.AudioSourceProvider;
+import dev.turtywurty.mediaplayer.sound.SpeakerType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -20,7 +25,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RadioPlayerBlockEntity extends BlockEntity {
+public class RadioPlayerBlockEntity extends BlockEntity implements AudioSourceProvider {
     public static final int MAX_SAVED_STATIONS = 8;
 
     private @NonNull String url = "";
@@ -140,6 +145,30 @@ public class RadioPlayerBlockEntity extends BlockEntity {
     public void setSavedStations(List<SavedRadioStation> savedStations) {
         this.savedStations = sanitizeSavedStations(savedStations);
         update();
+    }
+
+    @Override
+    public BlockPos getAudioSourcePos() {
+        return getBlockPos();
+    }
+
+    @Override
+    public AudioPlaybackState getAudioPlaybackState() {
+        return AudioPlaybackState.streaming(this.url, this.playing);
+    }
+
+    @Override
+    public List<AudioEmitter> getBuiltInAudioEmitters() {
+        return List.of(new AudioEmitter(
+                getBlockPos(),
+                getBlockState().getValue(RadioPlayerBlock.FACING).asDirection8(),
+                SpeakerType.FULL_RANGE,
+                1.0F));
+    }
+
+    @Override
+    public boolean playsLoadingStatic() {
+        return true;
     }
 
     private void update() {

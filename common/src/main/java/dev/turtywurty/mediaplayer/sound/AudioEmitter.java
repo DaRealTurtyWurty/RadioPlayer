@@ -4,7 +4,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction8;
 import net.minecraft.core.Vec3i;
 
-public record RadioAudioEmitter(
+public record AudioEmitter(
         BlockPos pos,
         Direction8 facing,
         SpeakerType type,
