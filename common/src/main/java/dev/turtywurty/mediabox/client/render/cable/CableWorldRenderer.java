@@ -26,7 +26,6 @@ import java.util.Optional;
 public final class CableWorldRenderer {
     private static final double VISIBLE_RENDER_DISTANCE_SQUARED = 160.0 * 160.0;
     private static final double CONCEALED_RENDER_DISTANCE_SQUARED = 96.0 * 96.0;
-    private static final int CONCEALED_COLOR = 0xE6FF9D24;
     private static final int VALID_PREVIEW_COLOR = 0xE640FF63;
     private static final int INVALID_PREVIEW_COLOR = 0xE6FF4040;
     private static final int VISIBLE_CABLE_STEPS = 24;
@@ -61,7 +60,12 @@ public final class CableWorldRenderer {
                     continue;
 
                 for (ClientConcealedCableSegment segment : ClientConcealedCableRouteCache.route(level, run)) {
-                    submitConcealedSegment(cameraPos, poseStack, submitNodeCollector, segment);
+                    submitConcealedSegment(
+                            cameraPos,
+                            poseStack,
+                            submitNodeCollector,
+                            segment,
+                            VisibleCablePalette.forSignalType(run.signalType()).concealedColor());
                 }
             }
         }
@@ -241,7 +245,8 @@ public final class CableWorldRenderer {
             Vec3 cameraPos,
             PoseStack poseStack,
             SubmitNodeCollector submitNodeCollector,
-            ClientConcealedCableSegment segment) {
+            ClientConcealedCableSegment segment,
+            int color) {
         Vec3 center = Vec3.atCenterOf(segment.pos());
         if (center.distanceToSqr(cameraPos) > CONCEALED_RENDER_DISTANCE_SQUARED)
             return;
@@ -257,11 +262,11 @@ public final class CableWorldRenderer {
                         float y = direction.getStepY() * 0.5F;
                         float z = direction.getStepZ() * 0.5F;
                         buffer.addVertex(pose, 0.0F, 0.0F, 0.0F)
-                                .setColor(CONCEALED_COLOR)
+                                .setColor(color)
                                 .setNormal(pose, direction.getStepX(), direction.getStepY(), direction.getStepZ())
                                 .setLineWidth(CONCEALED_LINE_WIDTH);
                         buffer.addVertex(pose, x, y, z)
-                                .setColor(CONCEALED_COLOR)
+                                .setColor(color)
                                 .setNormal(pose, direction.getStepX(), direction.getStepY(), direction.getStepZ())
                                 .setLineWidth(CONCEALED_LINE_WIDTH);
                     }
