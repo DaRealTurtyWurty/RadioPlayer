@@ -9,25 +9,22 @@ on:
       - master
   pull_request:
 
-jobs:
-  macos-natives:
-    uses: ./.github/workflows/build-macos-ffmpeg.yml
-    with:
-      ffmpeg_version: "n8.1.2"
-      publish_release: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-    permissions:
-      contents: write
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
+permissions:
+  contents: read
+
+jobs:
   build:
-    needs: macos-natives
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 20
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Set up JDK 25
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: '25'
         distribution: 'temurin'
@@ -38,14 +35,14 @@ jobs:
     # Configure Gradle for optimal use in GitHub Actions, including caching of downloaded dependencies.
     # See: https://github.com/gradle/actions/blob/main/setup-gradle/README.md
     - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v4.0.0
-
-    - name: Download macOS FFmpeg natives
-      uses: actions/download-artifact@v4
+      uses: gradle/actions/setup-gradle@v6
       with:
-        pattern: ffmpeg-macos-*
-        path: ${{ runner.temp }}/mediabox-ffmpeg
-        merge-multiple: true
+        cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-    - name: Build with Gradle Wrapper
-      run: ./gradlew build -PffmpegDownloadDir="${{ runner.temp }}/mediabox-ffmpeg"
+    - name: Verify pull request
+      if: github.event_name == 'pull_request'
+      run: ./gradlew check :fabric:jar :neoforge:jar -PffmpegPlatforms=linux-x64 --configuration-cache
+
+    - name: Build release artifacts
+      if: github.event_name == 'push'
+      run: ./gradlew build --configuration-cache

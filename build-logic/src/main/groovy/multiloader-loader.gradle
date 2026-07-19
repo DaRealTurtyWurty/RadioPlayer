@@ -12,6 +12,9 @@ configurations {
     commonGeneratedResources {
         canBeResolved = true
     }
+    commonNativeResources {
+        canBeResolved = true
+    }
 }
 
 dependencies {
@@ -19,6 +22,7 @@ dependencies {
     commonJava project(path: ':common', configuration: 'commonJava')
     commonResources project(path: ':common', configuration: 'commonResources')
     commonGeneratedResources project(path: ':common', configuration: 'commonGeneratedResources')
+    commonNativeResources project(path: ':common', configuration: 'commonNativeResources')
 }
 
 tasks.named('compileJava', JavaCompile) {
@@ -29,8 +33,10 @@ tasks.named('compileJava', JavaCompile) {
 processResources {
     dependsOn(configurations.commonResources)
     dependsOn(configurations.commonGeneratedResources)
+    dependsOn(configurations.commonNativeResources)
     from(configurations.commonResources)
     from(configurations.commonGeneratedResources)
+    from(configurations.commonNativeResources)
 }
 
 tasks.named('javadoc', Javadoc).configure {
