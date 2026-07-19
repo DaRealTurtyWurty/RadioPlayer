@@ -136,7 +136,7 @@ public class CablePortBlock extends Block implements EntityBlock, SimpleWaterlog
         CableConnectionLifecycle.removePort(level, new PortEndpoint(
                 level.dimension(),
                 pos,
-                CablePortBlockEntity.AUDIO_PORT_ID), true);
+                CablePortBlockEntity.PORT_ID), true);
         CableSync.broadcastSnapshot(level);
         super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
     }

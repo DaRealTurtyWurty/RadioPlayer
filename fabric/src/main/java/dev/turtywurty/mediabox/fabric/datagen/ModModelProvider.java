@@ -127,6 +127,7 @@ public class ModModelProvider extends FabricModelProvider {
         speakerItemModel(itemModelGenerators, ModBlocks.subwoofer.asBlock().asItem(), "subwoofer");
 
         itemModelGenerators.generateFlatItem(ModItems.audioCable.asItem(), ModelTemplates.FLAT_ITEM);
+        itemModelGenerators.generateFlatItem(ModItems.videoCable.asItem(), ModelTemplates.FLAT_ITEM);
     }
 
     private static void speakerItemModel(ItemModelGenerators itemModelGenerators, Item item,

@@ -3,13 +3,14 @@ package dev.turtywurty.mediabox.client.cable;
 import dev.turtywurty.mediabox.cable.CableItemData;
 import dev.turtywurty.mediabox.cable.CableConnectionRules;
 import dev.turtywurty.mediabox.cable.MediaPortLookup;
+import dev.turtywurty.mediabox.cable.MediaSignalType;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.ResolvedMediaPort;
 import dev.turtywurty.mediabox.cable.VisibleCableCollision;
 import dev.turtywurty.mediabox.cable.VisibleCableRoute;
 import dev.turtywurty.mediabox.cable.VisibleCableRouteFactory;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCablePortProvider;
-import dev.turtywurty.mediabox.item.AudioCableItem;
+import dev.turtywurty.mediabox.item.CableItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.network.chat.Component;
@@ -31,6 +32,9 @@ public final class ClientVisibleCablePreview {
             return Optional.empty();
 
         ItemStack stack = heldCableStack(minecraft);
+        if (!(stack.getItem() instanceof CableItem cableItem))
+            return Optional.empty();
+
         Optional<PortEndpoint> firstEndpoint = CableItemData.getPendingEndpoint(stack);
         if (firstEndpoint.isEmpty())
             return Optional.empty();
@@ -51,12 +55,19 @@ public final class ClientVisibleCablePreview {
                 first.get().endpoint(),
                 second.get().endpoint(),
                 stack.getCount(),
+                cableItem.signalType(),
                 creative);
         if (key.equals(cachedKey) && cachedPreview != null)
             return Optional.of(cachedPreview);
 
         cachedKey = key;
-        cachedPreview = calculate(level, first.get(), second.get(), stack.getCount(), creative);
+        cachedPreview = calculate(
+                level,
+                first.get(),
+                second.get(),
+                stack.getCount(),
+                cableItem.signalType(),
+                creative);
         showStatus(minecraft, cachedPreview);
         return Optional.of(cachedPreview);
     }
@@ -71,9 +82,11 @@ public final class ClientVisibleCablePreview {
             ResolvedMediaPort first,
             ResolvedMediaPort second,
             int availableItems,
+            MediaSignalType signalType,
             boolean creative) {
         VisibleCableRouteFactory.PurchasedRoute route = VisibleCableRouteFactory.create(first, second);
         boolean affordable = creative || availableItems >= route.cableItems();
+        boolean supported = first.port().supports(signalType) && second.port().supports(signalType);
         boolean compatible = CableConnectionRules.directionsAreCompatible(first.port(), second.port());
         boolean capacityAvailable = CableConnectionRules.hasCapacity(
                 first.port(),
@@ -81,26 +94,27 @@ public final class ClientVisibleCablePreview {
                 && CableConnectionRules.hasCapacity(
                 second.port(),
                 ClientCableState.connectionCount(second.endpoint()));
-        boolean clear = compatible && capacityAvailable && VisibleCableCollision.isClear(
+        boolean clear = supported && compatible && capacityAvailable && VisibleCableCollision.isClear(
                 level,
                 route.route(),
                 first.endpoint().pos(),
                 second.endpoint().pos());
         return new Preview(
                 route.route(),
-                affordable && compatible && capacityAvailable && clear,
+                affordable && supported && compatible && capacityAvailable && clear,
                 route.cableItems(),
-                compatible && capacityAvailable && !clear,
+                supported && compatible && capacityAvailable && !clear,
+                !supported,
                 !compatible,
                 !capacityAvailable);
     }
 
     private static ItemStack heldCableStack(Minecraft minecraft) {
         ItemStack mainHand = minecraft.player.getMainHandItem();
-        if (mainHand.getItem() instanceof AudioCableItem)
+        if (mainHand.getItem() instanceof CableItem)
             return mainHand;
         ItemStack offHand = minecraft.player.getOffhandItem();
-        return offHand.getItem() instanceof AudioCableItem ? offHand : ItemStack.EMPTY;
+        return offHand.getItem() instanceof CableItem ? offHand : ItemStack.EMPTY;
     }
 
     private static boolean isConcealedTerminal(ClientLevel level, ResolvedMediaPort port) {
@@ -108,7 +122,9 @@ public final class ClientVisibleCablePreview {
     }
 
     private static void showStatus(Minecraft minecraft, Preview preview) {
-        if (preview.incompatible()) {
+        if (preview.unsupported()) {
+            minecraft.player.sendOverlayMessage(Component.literal("Those ports do not support this cable type"));
+        } else if (preview.incompatible()) {
             minecraft.player.sendOverlayMessage(Component.literal("Those port directions are incompatible"));
         } else if (preview.full()) {
             minecraft.player.sendOverlayMessage(Component.literal("That port has reached its connection limit"));
@@ -129,6 +145,7 @@ public final class ClientVisibleCablePreview {
             boolean valid,
             int requiredItems,
             boolean blocked,
+            boolean unsupported,
             boolean incompatible,
             boolean full) {
     }
@@ -137,6 +154,7 @@ public final class ClientVisibleCablePreview {
             PortEndpoint first,
             PortEndpoint second,
             int availableItems,
+            MediaSignalType signalType,
             boolean creative) {
     }
 }

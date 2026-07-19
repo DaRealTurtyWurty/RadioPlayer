@@ -9,6 +9,7 @@
   "block.mediabox.speaker": "Speaker",
   "block.mediabox.subwoofer": "Subwoofer",
   "item.mediabox.audio_cable": "Audio Cable",
+  "item.mediabox.video_cable": "Video Cable",
   "screen.mediabox.globe.stations": "Stations",
   "screen.mediabox.globe.stations.empty": "No stations",
   "screen.mediabox.globe.stations.search": "Search",

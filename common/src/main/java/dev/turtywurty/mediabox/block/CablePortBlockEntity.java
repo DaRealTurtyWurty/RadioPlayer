@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Set;
 
 public class CablePortBlockEntity extends BlockEntity implements ConcealedCablePortProvider {
-    public static final Identifier AUDIO_PORT_ID = MediaBox.id("cable_port_audio");
+    public static final Identifier PORT_ID = MediaBox.id("cable_port_audio");
 
     public CablePortBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.cablePort.value(), pos, state);
@@ -23,11 +23,11 @@ public class CablePortBlockEntity extends BlockEntity implements ConcealedCableP
     @Override
     public List<MediaPort> getMediaPorts() {
         return List.of(new MediaPort(
-                AUDIO_PORT_ID,
+                PORT_ID,
                 getBlockState().getValue(CablePortBlock.FACING),
                 CablePortBlock.attachmentPoint(getBlockState()),
                 PortDirection.BIDIRECTIONAL,
                 MediaPort.UNLIMITED_CONNECTIONS,
-                Set.of(MediaSignalType.AUDIO)));
+                Set.of(MediaSignalType.AUDIO, MediaSignalType.VIDEO)));
     }
 }

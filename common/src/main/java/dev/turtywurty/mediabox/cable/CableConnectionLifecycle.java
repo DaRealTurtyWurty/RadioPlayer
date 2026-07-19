@@ -9,7 +9,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -24,7 +26,7 @@ public final class CableConnectionLifecycle {
             return;
 
         CableSavedData data = existingData.get();
-        int droppedItems = 0;
+        Map<MediaSignalType, Integer> droppedItems = new EnumMap<>(MediaSignalType.class);
         for (VisibleCableConnection connection : List.copyOf(data.manager().visibleConnections().values())) {
             Optional<ResolvedMediaPort> first = MediaPortLookup.resolve(level, connection.first());
             Optional<ResolvedMediaPort> second = MediaPortLookup.resolve(level, connection.second());
@@ -43,11 +45,11 @@ public final class CableConnectionLifecycle {
                     connection.second().pos()))
                 continue;
 
-            if (data.removeVisibleCable(connection.id()).isPresent())
-                droppedItems += connection.cableItems();
+            data.removeVisibleCable(connection.id()).ifPresent(removed ->
+                    addCableItems(droppedItems, removed.signalType(), removed.cableItems()));
         }
 
-        if (droppedItems > 0) {
+        if (!droppedItems.isEmpty()) {
             dropCableItems(level, Vec3.atCenterOf(changedPos), droppedItems);
             CableSync.broadcastSnapshot(level);
         }
@@ -55,27 +57,47 @@ public final class CableConnectionLifecycle {
 
     public static void removePort(ServerLevel level, PortEndpoint endpoint, boolean removeConcealedRuns) {
         CableSavedData data = CableSavedData.get(level);
-        int cableItems = 0;
+        Map<MediaSignalType, Integer> cableItems = new EnumMap<>(MediaSignalType.class);
         for (VisibleCableConnection connection : data.removeVisibleCablesAt(endpoint)) {
-            cableItems += connection.cableItems();
+            addCableItems(cableItems, connection.signalType(), connection.cableItems());
         }
 
         if (removeConcealedRuns) {
             Set<ConcealedCableRun> runs = data.manager().concealedCableRunsAt(endpoint);
             for (ConcealedCableRun run : runs) {
-                if (data.removeConcealedCableRun(run.id()).isPresent())
-                    cableItems += run.cableItems();
+                data.removeConcealedCableRun(run.id()).ifPresent(removed ->
+                        addCableItems(cableItems, removed.signalType(), removed.cableItems()));
             }
         }
 
         dropCableItems(level, Vec3.atCenterOf(endpoint.pos()), cableItems);
     }
 
-    private static void dropCableItems(ServerLevel level, Vec3 position, int count) {
+    private static void addCableItems(
+            Map<MediaSignalType, Integer> cableItems,
+            MediaSignalType signalType,
+            int count) {
+        cableItems.merge(signalType, count, Math::addExact);
+    }
+
+    private static void dropCableItems(
+            ServerLevel level,
+            Vec3 position,
+            Map<MediaSignalType, Integer> cableItems) {
+        for (var entry : cableItems.entrySet()) {
+            dropCableItems(level, position, entry.getKey(), entry.getValue());
+        }
+    }
+
+    private static void dropCableItems(
+            ServerLevel level,
+            Vec3 position,
+            MediaSignalType signalType,
+            int count) {
         if (count <= 0)
             return;
 
-        Item cableItem = ModItems.audioCable.asItem();
+        Item cableItem = ModItems.cableItem(signalType);
         int maxStackSize = new ItemStack(cableItem).getMaxStackSize();
         int remaining = count;
         BlockPos dropPos = BlockPos.containing(position.x, position.y, position.z);

@@ -8,7 +8,7 @@ import dev.turtywurty.mediabox.client.cable.ClientConcealedCableRouteCache;
 import dev.turtywurty.mediabox.client.cable.ClientConcealedCableSegment;
 import dev.turtywurty.mediabox.client.cable.ClientVisibleCablePreview;
 import dev.turtywurty.mediabox.client.cable.ClientVisibleCableRouteCache;
-import dev.turtywurty.mediabox.item.ModItems;
+import dev.turtywurty.mediabox.item.CableItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.SubmitNodeCollector;
@@ -18,7 +18,10 @@ import net.minecraft.core.Direction;
 import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.Optional;
 
 public final class CableWorldRenderer {
     private static final double VISIBLE_RENDER_DISTANCE_SQUARED = 160.0 * 160.0;
@@ -49,10 +52,14 @@ public final class CableWorldRenderer {
             submitVisibleCable(level, cameraPos, poseStack, submitNodeCollector, connection);
         }
 
-        if (isCableItemHeld(minecraft)) {
+        Optional<MediaSignalType> heldSignalType = heldCableSignalType(minecraft);
+        if (heldSignalType.isPresent()) {
             ClientVisibleCablePreview.get(minecraft).ifPresent(preview ->
                     submitPreview(cameraPos, poseStack, submitNodeCollector, preview));
             for (var run : snapshot.concealedRuns()) {
+                if (run.signalType() != heldSignalType.get())
+                    continue;
+
                 for (ClientConcealedCableSegment segment : ClientConcealedCableRouteCache.route(level, run)) {
                     submitConcealedSegment(cameraPos, poseStack, submitNodeCollector, segment);
                 }
@@ -262,8 +269,15 @@ public final class CableWorldRenderer {
         poseStack.popPose();
     }
 
-    private static boolean isCableItemHeld(Minecraft minecraft) {
-        return minecraft.player.getMainHandItem().getItem() == ModItems.audioCable.asItem()
-                || minecraft.player.getOffhandItem().getItem() == ModItems.audioCable.asItem();
+    private static Optional<MediaSignalType> heldCableSignalType(Minecraft minecraft) {
+        ItemStack mainHand = minecraft.player.getMainHandItem();
+        if (mainHand.getItem() instanceof CableItem cableItem)
+            return Optional.of(cableItem.signalType());
+
+        ItemStack offHand = minecraft.player.getOffhandItem();
+        if (offHand.getItem() instanceof CableItem cableItem)
+            return Optional.of(cableItem.signalType());
+
+        return Optional.empty();
     }
 }

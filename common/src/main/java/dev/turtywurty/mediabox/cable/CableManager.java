@@ -19,7 +19,7 @@ public final class CableManager {
     private final Map<UUID, ConcealedCableRun> concealedRuns = new LinkedHashMap<>();
     private final Map<PortEndpoint, Set<UUID>> concealedRunsByTerminal = new HashMap<>();
 
-    private final Map<PortEndpoint, CableNetwork> networkByPort = new HashMap<>();
+    private final Map<PortSignalKey, CableNetwork> networkByPortAndSignal = new HashMap<>();
 
     public void addVisibleCable(VisibleCableConnection cable) {
         validateCable(cable);
@@ -31,9 +31,6 @@ public final class CableManager {
 
             throw new IllegalArgumentException("A visible cable with ID " + cable.id() + " already exists");
         }
-
-        validateEndpointSignal(cable.first(), cable.signalType());
-        validateEndpointSignal(cable.second(), cable.signalType());
 
         visibleConnections.put(cable.id(), cable);
 
@@ -59,7 +56,7 @@ public final class CableManager {
             throw new IllegalArgumentException("A concealed cable run with ID " + run.id() + " already exists");
         }
 
-        validateConcealedRun(run, null);
+        validateConcealedRun(run);
 
         this.concealedRuns.put(run.id(), run);
         for (PortEndpoint terminal : run.terminals()) {
@@ -97,7 +94,7 @@ public final class CableManager {
         if (previous.equals(run))
             return;
 
-        validateConcealedRun(run, run.id());
+        validateConcealedRun(run);
         for (PortEndpoint oldTerminal : previous.terminals()) {
             removeConcealedTerminalIndex(oldTerminal, run.id());
         }
@@ -205,13 +202,14 @@ public final class CableManager {
         return Set.copyOf(cables);
     }
 
-    public Optional<CableNetwork> networkAt(PortEndpoint endpoint) {
+    public Optional<CableNetwork> networkAt(PortEndpoint endpoint, MediaSignalType signalType) {
         Objects.requireNonNull(endpoint, "endpoint");
-        return Optional.ofNullable(this.networkByPort.get(endpoint));
+        Objects.requireNonNull(signalType, "signalType");
+        return Optional.ofNullable(this.networkByPortAndSignal.get(new PortSignalKey(endpoint, signalType)));
     }
 
     public Set<CableNetwork> networks() {
-        return Set.copyOf(this.networkByPort.values());
+        return Set.copyOf(this.networkByPortAndSignal.values());
     }
 
     public int visibleCableCount() {
@@ -235,7 +233,7 @@ public final class CableManager {
         this.connectionsByEndpoint.clear();
         this.concealedRuns.clear();
         this.concealedRunsByTerminal.clear();
-        this.networkByPort.clear();
+        this.networkByPortAndSignal.clear();
     }
 
     private static void validateCable(VisibleCableConnection cable) {
@@ -260,23 +258,7 @@ public final class CableManager {
         Objects.requireNonNull(endpoint.portId(), name + ".portId");
     }
 
-    private void validateEndpointSignal(PortEndpoint endpoint, MediaSignalType signalType) {
-        for (UUID cableId : this.connectionsByEndpoint.getOrDefault(endpoint, Set.of())) {
-            VisibleCableConnection connectedCable = this.visibleConnections.get(cableId);
-            if (connectedCable != null && connectedCable.signalType() != signalType)
-                throw new IllegalArgumentException(
-                        "Port " + endpoint + " is already connected to a " + connectedCable.signalType() + " network");
-        }
-
-        for (UUID runId : this.concealedRunsByTerminal.getOrDefault(endpoint, Set.of())) {
-            ConcealedCableRun run = this.concealedRuns.get(runId);
-            if (run != null && run.signalType() != signalType)
-                throw new IllegalArgumentException(
-                        "Port " + endpoint + " already terminates a " + run.signalType() + " concealed cable run");
-        }
-    }
-
-    private void validateConcealedRun(ConcealedCableRun run, UUID replacedRunId) {
+    private static void validateConcealedRun(ConcealedCableRun run) {
         Objects.requireNonNull(run, "run");
         ResourceKey<Level> dimension = null;
 
@@ -286,30 +268,6 @@ public final class CableManager {
                 dimension = terminal.dimension();
             else if (!dimension.equals(terminal.dimension()))
                 throw new IllegalArgumentException("A concealed cable run cannot span dimensions");
-
-            validateEndpointSignalIgnoringRun(terminal, run.signalType(), replacedRunId);
-        }
-    }
-
-    private void validateEndpointSignalIgnoringRun(
-            PortEndpoint endpoint,
-            MediaSignalType signalType,
-            UUID ignoredRunId) {
-        for (UUID cableId : this.connectionsByEndpoint.getOrDefault(endpoint, Set.of())) {
-            VisibleCableConnection cable = this.visibleConnections.get(cableId);
-            if (cable != null && cable.signalType() != signalType)
-                throw new IllegalArgumentException(
-                        "Port " + endpoint + " is already connected to a " + cable.signalType() + " cable");
-        }
-
-        for (UUID existingRunId : this.concealedRunsByTerminal.getOrDefault(endpoint, Set.of())) {
-            if (existingRunId.equals(ignoredRunId))
-                continue;
-
-            ConcealedCableRun existingRun = this.concealedRuns.get(existingRunId);
-            if (existingRun != null && existingRun.signalType() != signalType)
-                throw new IllegalArgumentException(
-                        "Port " + endpoint + " already terminates a " + existingRun.signalType() + " concealed run");
         }
     }
 
@@ -335,11 +293,11 @@ public final class CableManager {
     }
 
     private void rebuildNetworks() {
-        Collection<CableNetwork> oldNetworks = new HashSet<>(this.networkByPort.values());
+        Collection<CableNetwork> oldNetworks = new HashSet<>(this.networkByPortAndSignal.values());
         List<NetworkComponent> components = findNetworkComponents();
         Map<Integer, UUID> reusableIds = matchReusableNetworkIds(components, oldNetworks);
 
-        this.networkByPort.clear();
+        this.networkByPortAndSignal.clear();
         Set<UUID> usedIds = new HashSet<>(reusableIds.values());
 
         for (int index = 0; index < components.size(); index++) {
@@ -353,70 +311,52 @@ public final class CableManager {
 
             CableNetwork network = new CableNetwork(networkId, component.ports(), component.signalType());
             for (PortEndpoint port : component.ports()) {
-                this.networkByPort.put(port, network);
+                this.networkByPortAndSignal.put(new PortSignalKey(port, component.signalType()), network);
             }
         }
     }
 
     private List<NetworkComponent> findNetworkComponents() {
         List<NetworkComponent> components = new ArrayList<>();
-        Set<PortEndpoint> visited = new HashSet<>();
+        Set<PortSignalKey> visited = new HashSet<>();
 
-        Set<PortEndpoint> startingPorts = new LinkedHashSet<>();
+        Set<PortSignalKey> startingPorts = new LinkedHashSet<>();
         for (VisibleCableConnection cable : this.visibleConnections.values()) {
-            startingPorts.add(cable.first());
-            startingPorts.add(cable.second());
+            startingPorts.add(new PortSignalKey(cable.first(), cable.signalType()));
+            startingPorts.add(new PortSignalKey(cable.second(), cable.signalType()));
         }
 
         for (ConcealedCableRun run : this.concealedRuns.values()) {
-            startingPorts.addAll(run.terminals());
+            for (PortEndpoint terminal : run.terminals()) {
+                startingPorts.add(new PortSignalKey(terminal, run.signalType()));
+            }
         }
 
-        for (PortEndpoint startingPort : startingPorts) {
+        for (PortSignalKey startingPort : startingPorts) {
             if (visited.contains(startingPort))
-                continue;
-
-            MediaSignalType signalType = signalTypeAt(startingPort);
-            if (signalType == null)
                 continue;
 
             Set<PortEndpoint> ports = new LinkedHashSet<>();
             ArrayDeque<PortEndpoint> pending = new ArrayDeque<>();
-            pending.add(startingPort);
+            pending.add(startingPort.endpoint());
 
             while (!pending.isEmpty()) {
                 PortEndpoint endpoint = pending.removeFirst();
-                if (!visited.add(endpoint))
+                if (!visited.add(new PortSignalKey(endpoint, startingPort.signalType())))
                     continue;
 
                 ports.add(endpoint);
-                for (PortEndpoint adjacent : adjacentPorts(endpoint, signalType)) {
-                    if (!visited.contains(adjacent)) {
+                for (PortEndpoint adjacent : adjacentPorts(endpoint, startingPort.signalType())) {
+                    if (!visited.contains(new PortSignalKey(adjacent, startingPort.signalType()))) {
                         pending.addLast(adjacent);
                     }
                 }
             }
 
-            components.add(new NetworkComponent(signalType, ports));
+            components.add(new NetworkComponent(startingPort.signalType(), ports));
         }
 
         return components;
-    }
-
-    private MediaSignalType signalTypeAt(PortEndpoint endpoint) {
-        for (UUID cableId : this.connectionsByEndpoint.getOrDefault(endpoint, Set.of())) {
-            VisibleCableConnection cable = this.visibleConnections.get(cableId);
-            if (cable != null)
-                return cable.signalType();
-        }
-
-        for (UUID runId : this.concealedRunsByTerminal.getOrDefault(endpoint, Set.of())) {
-            ConcealedCableRun run = this.concealedRuns.get(runId);
-            if (run != null)
-                return run.signalType();
-        }
-
-        return null;
     }
 
     private Set<PortEndpoint> adjacentPorts(PortEndpoint endpoint, MediaSignalType signalType) {
@@ -491,6 +431,9 @@ public final class CableManager {
     }
 
     private record NetworkComponent(MediaSignalType signalType, Set<PortEndpoint> ports) {
+    }
+
+    private record PortSignalKey(PortEndpoint endpoint, MediaSignalType signalType) {
     }
 
     private record NetworkMatch(int componentIndex, UUID networkId, int overlap) {

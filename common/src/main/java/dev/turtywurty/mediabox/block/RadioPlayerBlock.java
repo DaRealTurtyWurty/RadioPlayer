@@ -5,7 +5,7 @@ import dev.turtywurty.mediabox.block.entity.RadioPlayerBlockEntity;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.CableSync;
 import dev.turtywurty.mediabox.cable.CableConnectionLifecycle;
-import dev.turtywurty.mediabox.item.AudioCableItem;
+import dev.turtywurty.mediabox.item.CableItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
@@ -67,7 +67,7 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
             @NonNull Player player,
             @NonNull InteractionHand hand,
             @NonNull BlockHitResult hitResult) {
-        if (stack.getItem() instanceof AudioCableItem)
+        if (stack.getItem() instanceof CableItem)
             return InteractionResult.PASS;
 
         return super.useItemOn(stack, state, level, pos, player, hand, hitResult);

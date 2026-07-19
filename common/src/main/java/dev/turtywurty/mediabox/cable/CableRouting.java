@@ -23,7 +23,7 @@ public final class CableRouting {
         }
 
         CableManager manager = CableSavedData.get(level).manager();
-        CableNetwork network = manager.networkAt(inputPort.get().endpoint()).orElse(null);
+        CableNetwork network = manager.networkAt(inputPort.get().endpoint(), MediaSignalType.AUDIO).orElse(null);
         if (network == null) {
             speaker.setLinkedSourcePos(null);
             return;
