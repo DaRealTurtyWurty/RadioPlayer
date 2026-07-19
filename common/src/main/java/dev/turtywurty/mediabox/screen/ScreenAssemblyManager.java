@@ -2,7 +2,6 @@ package dev.turtywurty.mediabox.screen;
 
 import dev.turtywurty.mediabox.block.FlatScreenBlock;
 import dev.turtywurty.mediabox.block.entity.FlatScreenBlockEntity;
-import dev.turtywurty.mediabox.video.ScreenPlaybackSync;
 import dev.turtywurty.mediabox.video.VideoSessionState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -131,16 +130,10 @@ public final class ScreenAssemblyManager {
             if (data.upsert(assembly)) {
                 ScreenSync.broadcastUpsert(level, assembly);
             }
-
-            ScreenPlaybackSync.ensureTestAssignment(level, assembly.id());
         }
     }
 
-    private static Component collectComponent(
-            ServerLevel level,
-            BlockPos seed,
-            Direction facing,
-            Set<BlockPos> discovered) {
+    private static Component collectComponent(ServerLevel level, BlockPos seed, Direction facing, Set<BlockPos> discovered) {
         Direction right = screenRight(facing);
         ArrayDeque<BlockPos> pending = new ArrayDeque<>();
         Set<BlockPos> members = new LinkedHashSet<>();

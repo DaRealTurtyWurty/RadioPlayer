@@ -1,6 +1,7 @@
 package dev.turtywurty.mediabox.fabric.datagen;
 
 import dev.turtywurty.mediabox.block.ModBlocks;
+import dev.turtywurty.mediabox.client.gui.FlatScreenSettingsScreen;
 import dev.turtywurty.mediabox.client.gui.GlobeScreen;
 import dev.turtywurty.mediabox.client.gui.RadioPlayerScreen;
 import dev.turtywurty.mediabox.client.gui.widget.StationListWidget;
@@ -50,6 +51,9 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         translationBuilder.add(ModItems.audioCable.asItem(), "Audio Cable");
         translationBuilder.add(ModItems.videoCable.asItem(), "Video Cable");
         translationBuilder.add(ModBlocks.flatScreen.asBlock(), "Flat Screen");
+        add(translationBuilder, FlatScreenSettingsScreen.TITLE, "Flat Screen");
+        add(translationBuilder, FlatScreenSettingsScreen.URL_LABEL, "Video URL");
+        add(translationBuilder, FlatScreenSettingsScreen.PLAY_BUTTON, "Play");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {

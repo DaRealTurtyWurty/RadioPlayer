@@ -1,5 +1,6 @@
 package dev.turtywurty.mediabox.video;
 
+import dev.turtywurty.mediabox.network.ScreenPlaybackSnapshotMessage;
 import dev.turtywurty.mediabox.network.ScreenPlaybackUpsertMessage;
 import net.blay09.mods.balm.Balm;
 import net.minecraft.server.level.ServerLevel;
@@ -9,29 +10,6 @@ import java.util.UUID;
 
 public final class ScreenPlaybackSync {
     private ScreenPlaybackSync() {
-    }
-
-    public static final UUID TEST_SESSION_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
-
-    public static void ensureTestAssignment(ServerLevel level, UUID screenId) {
-        ScreenPlaybackSavedData data = ScreenPlaybackSavedData.get(level);
-
-        if (data.get(screenId).isPresent())
-            return;
-
-        var session = new VideoSessionState(
-                TEST_SESSION_ID,
-                new VideoSource.ServerAsset(
-                        "2021-06-17-183704972.mp4",
-                        ""
-                ),
-                PlaybackStatus.PLAYING,
-                0L,
-                0.0,
-                true
-        );
-
-        upsert(level, new ScreenPlaybackAssignment(screenId, session));
     }
 
     public static void upsert(ServerLevel level, ScreenPlaybackAssignment assignment) {
@@ -44,5 +22,30 @@ public final class ScreenPlaybackSync {
         for (ServerPlayer player : level.players()) {
             Balm.networking().sendTo(player, message);
         }
+    }
+
+    public static void sendSnapshot(ServerPlayer player, ServerLevel level) {
+        ScreenPlaybackSavedData data = ScreenPlaybackSavedData.get(level);
+
+        Balm.networking().sendTo(
+                player,
+                new ScreenPlaybackSnapshotMessage(
+                        level.dimension(),
+                        data.assignments().stream().toList()
+                )
+        );
+    }
+
+    public static void playRemoteUrl(ServerLevel level, UUID screenId, String url) {
+        var session = new VideoSessionState(
+                UUID.randomUUID(),
+                new VideoSource.RemoteUrl(url),
+                PlaybackStatus.PLAYING,
+                level.getGameTime(),
+                0.0,
+                true
+        );
+
+        upsert(level, new ScreenPlaybackAssignment(screenId, session));
     }
 }

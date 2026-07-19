@@ -1,11 +1,14 @@
 package dev.turtywurty.mediabox.block;
 
+import dev.turtywurty.mediabox.api.client.MediaBoxClientAPI;
 import dev.turtywurty.mediabox.block.entity.FlatScreenBlockEntity;
 import dev.turtywurty.mediabox.screen.ScreenAssemblyManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -19,6 +22,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.phys.BlockHitResult;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -38,6 +42,23 @@ public class FlatScreenBlock extends Block implements EntityBlock {
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
         return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected @NonNull InteractionResult useWithoutItem(
+            @NonNull BlockState state,
+            Level level,
+            @NonNull BlockPos pos,
+            @NonNull Player player,
+            @NonNull BlockHitResult hitResult
+    ) {
+        if (level.isClientSide()
+                && level.getBlockEntity(pos) instanceof FlatScreenBlockEntity screen
+                && screen.getScreenId() != null) {
+            MediaBoxClientAPI.openFlatScreenSettingsScreen(pos, screen.getScreenId());
+        }
+
+        return InteractionResult.SUCCESS;
     }
 
     @Override

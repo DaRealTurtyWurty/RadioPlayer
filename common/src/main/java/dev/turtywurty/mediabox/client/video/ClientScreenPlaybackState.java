@@ -1,6 +1,7 @@
 package dev.turtywurty.mediabox.client.video;
 
-import dev.turtywurty.mediabox.network.ScreenPlaybackUpsertMessage;
+import dev.turtywurty.mediabox.network.ScreenPlaybackSnapshotMessage;
+import dev.turtywurty.mediabox.video.ScreenPlaybackAssignment;
 import dev.turtywurty.mediabox.video.VideoSessionState;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -16,14 +17,13 @@ public final class ClientScreenPlaybackState {
     private ClientScreenPlaybackState() {
     }
 
-    public static void apply(ScreenPlaybackUpsertMessage message) {
-        Snapshot current = snapshot;
+    public static void apply(ScreenPlaybackSnapshotMessage message) {
+        Map<UUID, VideoSessionState> assignments = new HashMap<>();
 
-        if (current.dimension() != null && !current.dimension().equals(message.dimension()))
-            return;
+        for (ScreenPlaybackAssignment assignment : message.assignments()) {
+            assignments.put(assignment.screenId(), assignment.session());
+        }
 
-        Map<UUID, VideoSessionState> assignments = new HashMap<>(current.assignments());
-        assignments.put(message.assignment().screenId(), message.assignment().session());
         snapshot = new Snapshot(message.dimension(), assignments);
     }
 

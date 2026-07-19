@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.UUID;
 
 public class MediaBoxClientAPI {
     private static final InternalClientMethods __internalMethods;
@@ -24,5 +25,9 @@ public class MediaBoxClientAPI {
 
     public static void openGlobeScreen() {
         __internalMethods.openGlobeScreen();
+    }
+
+    public static void openFlatScreenSettingsScreen(BlockPos pos, UUID screenId) {
+        __internalMethods.openFlatScreenSettingsScreen(pos, screenId);
     }
 }

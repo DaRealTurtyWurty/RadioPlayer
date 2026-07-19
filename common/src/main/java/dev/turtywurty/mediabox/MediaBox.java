@@ -2,16 +2,18 @@ package dev.turtywurty.mediabox;
 
 import dev.turtywurty.mediabox.block.ModBlockEntities;
 import dev.turtywurty.mediabox.block.ModBlocks;
+import dev.turtywurty.mediabox.cable.CableSync;
 import dev.turtywurty.mediabox.ffmpeg.FfmpegNatives;
 import dev.turtywurty.mediabox.item.ModItems;
 import dev.turtywurty.mediabox.network.*;
-import dev.turtywurty.mediabox.cable.CableSync;
 import dev.turtywurty.mediabox.screen.ScreenSync;
+import dev.turtywurty.mediabox.video.ScreenPlaybackSync;
 import net.blay09.mods.balm.Balm;
 import net.blay09.mods.balm.core.BalmRegistrars;
 import net.blay09.mods.balm.platform.event.callback.ServerLifecycleCallback;
 import net.blay09.mods.balm.platform.event.callback.ServerPlayerCallback;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.level.ServerLevel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,21 +72,36 @@ public class MediaBox {
                 ScreenPlaybackUpsertMessage.CODEC,
                 ScreenPlaybackUpsertMessage::handle);
 
+        Balm.networking().registerServerboundPacket(
+                SetScreenVideoUrlMessage.TYPE,
+                SetScreenVideoUrlMessage.class,
+                SetScreenVideoUrlMessage.CODEC,
+                SetScreenVideoUrlMessage::handle);
+
+        Balm.networking().registerClientboundPacket(
+                ScreenPlaybackSnapshotMessage.TYPE,
+                ScreenPlaybackSnapshotMessage.class,
+                ScreenPlaybackSnapshotMessage.CODEC,
+                ScreenPlaybackSnapshotMessage::handle);
+
         ServerPlayerCallback.Join.EVENT.register(player -> {
             CableSync.sendSnapshot(player, player.level());
             ScreenSync.sendSnapshot(player, player.level());
+            ScreenPlaybackSync.sendSnapshot(player, player.level());
         });
 
         ServerPlayerCallback.Respawn.EVENT.register((oldPlayer, newPlayer) -> {
             CableSync.sendSnapshot(newPlayer, newPlayer.level());
             ScreenSync.sendSnapshot(newPlayer, newPlayer.level());
+            ScreenPlaybackSync.sendSnapshot(newPlayer, newPlayer.level());
         });
 
         ServerPlayerCallback.DimensionChange.EVENT.register((player, from, to) -> {
-            var level = player.level().getServer().getLevel(to);
+            ServerLevel level = player.level().getServer().getLevel(to);
             if (level != null) {
                 CableSync.sendSnapshot(player, level);
                 ScreenSync.sendSnapshot(player, level);
+                ScreenPlaybackSync.sendSnapshot(player, level);
             }
         });
     }
