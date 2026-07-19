@@ -172,6 +172,10 @@ configurations {
         canBeResolved = false
         canBeConsumed = true
     }
+    commonNativeResources {
+        canBeResolved = false
+        canBeConsumed = true
+    }
 }
 
 dependencies {
@@ -321,7 +325,7 @@ artifacts {
     commonJava sourceSets.main.java.sourceDirectories.singleFile
     commonResources sourceSets.main.resources.sourceDirectories.singleFile
     commonGeneratedResources sourceSets.generated.resources.sourceDirectories.singleFile
-    commonGeneratedResources(ffmpegResourceRootDir) {
+    commonNativeResources(ffmpegResourceRootDir) {
         builtBy tasks.named('extractFfmpegNatives')
     }
 }

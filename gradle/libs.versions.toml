@@ -37,7 +37,7 @@ clothConfig = { module = "maven.modrinth:cloth-config", version.ref = "clothConf
 mixin = { module = "org.spongepowered:mixin", version = "0.8.7" }
 
 [plugins]
-fabricLoom = { id = "net.fabricmc.fabric-loom", version = "1.14-SNAPSHOT" }
+fabricLoom = { id = "net.fabricmc.fabric-loom", version = "1.14.10" }
 modDevGradle = { id = "net.neoforged.moddev", version = "2.0.141" }
 curseForgeGradle = { id = "net.darkhax.curseforgegradle", version = "1.1.26" }
-modrinthMinotaur = { id = "com.modrinth.minotaur", version = "2.+" }
+modrinthMinotaur = { id = "com.modrinth.minotaur", version = "2.9.0" }
