@@ -11,4 +11,9 @@ public interface RenderPipelinesAccessor {
     static RenderPipeline.Snippet mediabox$getMatricesFogSnippet() {
         throw new AssertionError();
     }
+
+    @Accessor("LINES_SNIPPET")
+    static RenderPipeline.Snippet mediabox$getLinesSnippet() {
+        throw new AssertionError();
+    }
 }

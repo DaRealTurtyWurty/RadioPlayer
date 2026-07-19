@@ -1,0 +1,27 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "mediabox:block/cable_port",
+      "x": 90
+    },
+    "facing=east": {
+      "model": "mediabox:block/cable_port",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediabox:block/cable_port"
+    },
+    "facing=south": {
+      "model": "mediabox:block/cable_port",
+      "y": 180
+    },
+    "facing=up": {
+      "model": "mediabox:block/cable_port",
+      "x": 270
+    },
+    "facing=west": {
+      "model": "mediabox:block/cable_port",
+      "y": 270
+    }
+  }
+}

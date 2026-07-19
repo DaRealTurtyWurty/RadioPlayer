@@ -5,9 +5,12 @@ import dev.turtywurty.mediabox.block.ModBlocks;
 import dev.turtywurty.mediabox.ffmpeg.FfmpegNatives;
 import dev.turtywurty.mediabox.item.ModItems;
 import dev.turtywurty.mediabox.network.UpdateRadioUrlMessage;
+import dev.turtywurty.mediabox.network.CableSnapshotMessage;
+import dev.turtywurty.mediabox.cable.CableSync;
 import net.blay09.mods.balm.Balm;
 import net.blay09.mods.balm.core.BalmRegistrars;
 import net.blay09.mods.balm.platform.event.callback.ServerLifecycleCallback;
+import net.blay09.mods.balm.platform.event.callback.ServerPlayerCallback;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,5 +39,20 @@ public class MediaBox {
                 UpdateRadioUrlMessage.class,
                 UpdateRadioUrlMessage.CODEC,
                 UpdateRadioUrlMessage::handle);
+
+        Balm.networking().registerClientboundPacket(
+                CableSnapshotMessage.TYPE,
+                CableSnapshotMessage.class,
+                CableSnapshotMessage.CODEC,
+                CableSnapshotMessage::handle);
+
+        ServerPlayerCallback.Join.EVENT.register(player -> CableSync.sendSnapshot(player, player.level()));
+        ServerPlayerCallback.Respawn.EVENT.register((oldPlayer, newPlayer) ->
+                CableSync.sendSnapshot(newPlayer, newPlayer.level()));
+        ServerPlayerCallback.DimensionChange.EVENT.register((player, from, to) -> {
+            var level = player.level().getServer().getLevel(to);
+            if (level != null)
+                CableSync.sendSnapshot(player, level);
+        });
     }
 }

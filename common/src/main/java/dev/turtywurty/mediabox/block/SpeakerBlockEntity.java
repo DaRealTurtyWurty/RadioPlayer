@@ -1,12 +1,22 @@
 package dev.turtywurty.mediabox.block;
 
+import dev.turtywurty.mediabox.MediaBox;
+import dev.turtywurty.mediabox.cable.MediaPort;
+import dev.turtywurty.mediabox.cable.MediaPortGeometry;
+import dev.turtywurty.mediabox.cable.MediaPortProvider;
+import dev.turtywurty.mediabox.cable.MediaSignalType;
+import dev.turtywurty.mediabox.cable.PortDirection;
+import dev.turtywurty.mediabox.cable.CableRouting;
 import dev.turtywurty.mediabox.sound.AudioSourceProvider;
+import dev.turtywurty.mediabox.sound.SpeakerType;
+import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -14,13 +24,16 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Objects;
+import java.util.List;
+import java.util.Set;
 
-public class SpeakerBlockEntity extends BlockEntity {
-    private static final int SOURCE_SEARCH_RADIUS = 8; // temp until we have a wiring system
+public class SpeakerBlockEntity extends BlockEntity implements MediaPortProvider {
+    public static final Identifier AUDIO_INPUT_PORT_ID = MediaBox.id("speaker_audio_input");
 
     private @Nullable BlockPos linkedSourcePos;
 
@@ -47,6 +60,28 @@ public class SpeakerBlockEntity extends BlockEntity {
 
         this.linkedSourcePos = immutablePos;
         update();
+    }
+
+    @Override
+    public List<MediaPort> getMediaPorts() {
+        Direction modelFacing = getBlockState().getValue(SpeakerBlock.FACING).nearestCardinal();
+        SpeakerType speakerType = ((SpeakerBlock) getBlockState().getBlock()).getSpeakerType();
+        return List.of(new MediaPort(
+                AUDIO_INPUT_PORT_ID,
+                modelFacing.getOpposite(),
+                MediaPortGeometry.rotateFromNorth(speakerAttachmentPoint(speakerType), modelFacing),
+                PortDirection.INPUT,
+                1,
+                Set.of(MediaSignalType.AUDIO)));
+    }
+
+    private static Vec3 speakerAttachmentPoint(SpeakerType speakerType) {
+        return switch (speakerType) {
+            case BOOKSHELF -> MediaPortGeometry.modelPoint(9.5, 6.5, 12.0);
+            case FLOOR_STANDING -> MediaPortGeometry.modelPoint(9.5, 5.5, 12.0);
+            case SUBWOOFER, BASS_REFLEX, HORN -> MediaPortGeometry.modelPoint(10.5, 5.5, 16.0);
+            case FULL_RANGE, WOOFER, MID_RANGE, TWEETER -> MediaPortGeometry.modelPoint(10.5, 5.5, 14.0);
+        };
     }
 
     @Override
@@ -78,40 +113,19 @@ public class SpeakerBlockEntity extends BlockEntity {
 
     public @Nullable AudioSourceProvider findAudioSource() {
         Level level = getLevel();
-        if (level == null)
+        if (level == null || this.linkedSourcePos == null)
             return null;
 
-        if (this.linkedSourcePos != null) {
-            BlockEntity blockEntity = level.getBlockEntity(this.linkedSourcePos);
-            if (!(blockEntity instanceof AudioSourceProvider source)) {
-                setLinkedSourcePos(null);
-                return null;
-            }
+        BlockEntity blockEntity = level.getBlockEntity(this.linkedSourcePos);
+        return blockEntity instanceof AudioSourceProvider source && isUsableSource(source) ? source : null;
+    }
 
-            return isUsableSource(source) ? source : null;
-        }
+    public static void serverTick(Level level, BlockPos pos, BlockState state, SpeakerBlockEntity speaker) {
+        if (!(level instanceof net.minecraft.server.level.ServerLevel serverLevel)
+                || (level.getGameTime() + pos.asLong()) % 20L != 0L)
+            return;
 
-        AudioSourceProvider closestSource = null;
-        double closestDistance = Double.MAX_VALUE;
-
-        for (BlockPos pos : BlockPos.betweenClosed(
-                this.worldPosition.offset(-SOURCE_SEARCH_RADIUS, -SOURCE_SEARCH_RADIUS, -SOURCE_SEARCH_RADIUS),
-                this.worldPosition.offset(SOURCE_SEARCH_RADIUS, SOURCE_SEARCH_RADIUS, SOURCE_SEARCH_RADIUS))) {
-            if (!(level.getBlockEntity(pos) instanceof AudioSourceProvider source) || !isUsableSource(source))
-                continue;
-
-            double distance = pos.distSqr(this.worldPosition);
-            if (distance < closestDistance) {
-                closestSource = source;
-                closestDistance = distance;
-            }
-        }
-
-        if (closestSource != null) {
-            setLinkedSourcePos(closestSource.getAudioSourcePos());
-        }
-
-        return closestSource;
+        CableRouting.updateSpeaker(serverLevel, speaker);
     }
 
     private void update() {

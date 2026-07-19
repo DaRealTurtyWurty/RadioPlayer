@@ -4,13 +4,21 @@ import com.mojang.serialization.Codec;
 import dev.turtywurty.mediabox.SavedRadioStation;
 import dev.turtywurty.mediabox.block.ModBlockEntities;
 import dev.turtywurty.mediabox.block.RadioPlayerBlock;
+import dev.turtywurty.mediabox.MediaBox;
+import dev.turtywurty.mediabox.cable.MediaPort;
+import dev.turtywurty.mediabox.cable.MediaPortGeometry;
+import dev.turtywurty.mediabox.cable.MediaPortProvider;
+import dev.turtywurty.mediabox.cable.MediaSignalType;
+import dev.turtywurty.mediabox.cable.PortDirection;
 import dev.turtywurty.mediabox.sound.AudioEmitter;
 import dev.turtywurty.mediabox.sound.AudioPlaybackState;
 import dev.turtywurty.mediabox.sound.AudioSourceProvider;
 import dev.turtywurty.mediabox.sound.SpeakerType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.Identifier;
 import net.minecraft.network.protocol.Packet;
 import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -24,9 +32,11 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
-public class RadioPlayerBlockEntity extends BlockEntity implements AudioSourceProvider {
+public class RadioPlayerBlockEntity extends BlockEntity implements AudioSourceProvider, MediaPortProvider {
     public static final int MAX_SAVED_STATIONS = 8;
+    public static final Identifier AUDIO_OUTPUT_PORT_ID = MediaBox.id("radio_audio_output");
 
     private @NonNull String url = "";
     private boolean playing = false;
@@ -164,6 +174,20 @@ public class RadioPlayerBlockEntity extends BlockEntity implements AudioSourcePr
                 getBlockState().getValue(RadioPlayerBlock.FACING).asDirection8(),
                 SpeakerType.FULL_RANGE,
                 1.0F));
+    }
+
+    @Override
+    public List<MediaPort> getMediaPorts() {
+        Direction modelFacing = getBlockState().getValue(RadioPlayerBlock.FACING).nearestCardinal();
+        return List.of(new MediaPort(
+                AUDIO_OUTPUT_PORT_ID,
+                modelFacing.getOpposite(),
+                MediaPortGeometry.rotateFromNorth(
+                        MediaPortGeometry.modelPoint(10.5, 1.5, 11.0),
+                        modelFacing),
+                PortDirection.OUTPUT,
+                MediaPort.UNLIMITED_CONNECTIONS,
+                Set.of(MediaSignalType.AUDIO)));
     }
 
     @Override
