@@ -1,5 +1,6 @@
 package dev.turtywurty.mediabox.video;
 
+import dev.turtywurty.mediabox.network.ScreenPlaybackRemovalMessage;
 import dev.turtywurty.mediabox.network.ScreenPlaybackSnapshotMessage;
 import dev.turtywurty.mediabox.network.ScreenPlaybackUpsertMessage;
 import net.blay09.mods.balm.Balm;
@@ -18,6 +19,19 @@ public final class ScreenPlaybackSync {
             return;
 
         var message = new ScreenPlaybackUpsertMessage(level.dimension(), assignment);
+
+        for (ServerPlayer player : level.players()) {
+            Balm.networking().sendTo(player, message);
+        }
+    }
+
+    public static void remove(ServerLevel level, UUID screenId) {
+        ScreenPlaybackSavedData data = ScreenPlaybackSavedData.get(level);
+
+        if (data.remove(screenId).isEmpty())
+            return;
+
+        var message = new ScreenPlaybackRemovalMessage(level.dimension(), screenId);
 
         for (ServerPlayer player : level.players()) {
             Balm.networking().sendTo(player, message);

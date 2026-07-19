@@ -84,6 +84,12 @@ public class MediaBox {
                 ScreenPlaybackSnapshotMessage.CODEC,
                 ScreenPlaybackSnapshotMessage::handle);
 
+        Balm.networking().registerClientboundPacket(
+                ScreenPlaybackRemovalMessage.TYPE,
+                ScreenPlaybackRemovalMessage.class,
+                ScreenPlaybackRemovalMessage.CODEC,
+                ScreenPlaybackRemovalMessage::handle);
+
         ServerPlayerCallback.Join.EVENT.register(player -> {
             CableSync.sendSnapshot(player, player.level());
             ScreenSync.sendSnapshot(player, player.level());

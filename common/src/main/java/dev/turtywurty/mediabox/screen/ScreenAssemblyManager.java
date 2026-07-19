@@ -2,6 +2,7 @@ package dev.turtywurty.mediabox.screen;
 
 import dev.turtywurty.mediabox.block.FlatScreenBlock;
 import dev.turtywurty.mediabox.block.entity.FlatScreenBlockEntity;
+import dev.turtywurty.mediabox.video.ScreenPlaybackSync;
 import dev.turtywurty.mediabox.video.VideoSessionState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -124,6 +125,8 @@ public final class ScreenAssemblyManager {
             if (data.remove(removedId)) {
                 ScreenSync.broadcastRemoval(level, removedId);
             }
+
+            ScreenPlaybackSync.remove(level, removedId);
         }
 
         for (ScreenAssembly assembly : rebuiltAssemblies) {

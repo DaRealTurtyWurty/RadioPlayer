@@ -6,18 +6,25 @@ import org.jspecify.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.OptionalDouble;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class FfmpegVideoDecoder implements AutoCloseable {
     private final Process process;
     private final Thread decoderThread;
+    private final Thread progressThread;
     private final int frameBytes;
 
     private final AtomicReference<byte[]> latestFrame = new AtomicReference<>();
+    private final AtomicLong outputTimeMicros = new AtomicLong(-1L);
 
     private volatile boolean closed;
 
@@ -36,7 +43,13 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
                 "MediaBox Video Decoder"
         );
         this.decoderThread.setDaemon(true);
+        this.progressThread = new Thread(
+                this::progressLoop,
+                "MediaBox Video Progress"
+        );
+        this.progressThread.setDaemon(true);
         this.decoderThread.start();
+        this.progressThread.start();
     }
 
     public static FfmpegVideoDecoder open(
@@ -45,8 +58,13 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
             int width,
             int height,
             int frameRate,
-            boolean looping
+            boolean looping,
+            double startPositionSeconds,
+            double playbackRate
     ) throws IOException {
+        if (!Double.isFinite(playbackRate) || playbackRate <= 0.0)
+            throw new IllegalArgumentException("Playback rate must be positive and finite");
+
         Path ffmpeg = FfmpegNatives.requireFfmpeg(gameDirectory);
 
         String videoFilter = String.format(
@@ -67,15 +85,30 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
         command.add("-hide_banner");
         command.add("-loglevel");
         command.add("error");
+        command.add("-nostats");
+        command.add("-stats_period");
+        command.add("0.5");
+        command.add("-progress");
+        command.add("pipe:2");
 
         /*
          * Input options must appear before -i.
          */
-        command.add("-re");
+        command.add("-readrate");
+        command.add(String.format(Locale.ROOT, "%.5f", playbackRate));
 
         if (looping) {
             command.add("-stream_loop");
             command.add("-1");
+        }
+
+        if (startPositionSeconds > 0.0) {
+            command.add("-ss");
+            command.add(String.format(
+                    Locale.ROOT,
+                    "%.3f",
+                    startPositionSeconds
+            ));
         }
 
         command.add("-i");
@@ -90,9 +123,7 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
                 "pipe:1"
         ));
 
-        Process process = new ProcessBuilder(command)
-                .redirectError(ProcessBuilder.Redirect.INHERIT)
-                .start();
+        Process process = new ProcessBuilder(command).start();
 
         MediaBox.LOGGER.info(
                 "Started FFmpeg video decoder for {}",
@@ -139,8 +170,40 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
         }
     }
 
+    private void progressLoop() {
+        try (var reader = new BufferedReader(new InputStreamReader(
+                this.process.getErrorStream(),
+                StandardCharsets.UTF_8
+        ))) {
+            String line;
+            while (!this.closed && (line = reader.readLine()) != null) {
+                if (line.startsWith("out_time_us=")) {
+                    String value = line.substring("out_time_us=".length());
+                    try {
+                        this.outputTimeMicros.set(Long.parseLong(value));
+                    } catch (NumberFormatException ignored) {
+                        // FFmpeg can report N/A before the first output timestamp.
+                    }
+                } else if (!line.isBlank() && !line.contains("=")) {
+                    MediaBox.LOGGER.warn("FFmpeg video decoder: {}", line);
+                }
+            }
+        } catch (IOException exception) {
+            if (!this.closed) {
+                MediaBox.LOGGER.error("Could not read FFmpeg video progress", exception);
+            }
+        }
+    }
+
     public byte @Nullable [] takeLatestFrame() {
         return this.latestFrame.getAndSet(null);
+    }
+
+    public OptionalDouble outputTimeSeconds() {
+        long micros = this.outputTimeMicros.get();
+        return micros < 0L
+                ? OptionalDouble.empty()
+                : OptionalDouble.of(micros / 1_000_000.0);
     }
 
     @Override
@@ -153,5 +216,6 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
 
         this.process.destroyForcibly();
         this.decoderThread.interrupt();
+        this.progressThread.interrupt();
     }
 }
