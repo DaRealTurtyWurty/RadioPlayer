@@ -18,12 +18,16 @@ public class ModBlockTagProvider extends FabricTagsProvider.BlockTagsProvider {
     protected void addTags(HolderLookup.@NonNull Provider arg) {
         builder(BlockTags.MINEABLE_WITH_AXE)
                 .add(ModBlocks.radioPlayer.asResourceKey())
-                .add(ModBlocks.globe.asResourceKey())
                 .add(ModBlocks.speaker.asResourceKey())
                 .add(ModBlocks.bassReflexSpeaker.asResourceKey())
                 .add(ModBlocks.hornSpeaker.asResourceKey())
                 .add(ModBlocks.bookshelfSpeaker.asResourceKey())
                 .add(ModBlocks.floorStandingSpeaker.asResourceKey())
                 .add(ModBlocks.subwoofer.asResourceKey());
+
+        builder(BlockTags.MINEABLE_WITH_PICKAXE)
+                .add(ModBlocks.globe.asResourceKey())
+                .add(ModBlocks.cablePort.asResourceKey())
+                .add(ModBlocks.flatScreen.asResourceKey());
     }
 }

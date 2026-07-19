@@ -1,7 +1,10 @@
 package dev.turtywurty.mediabox.screen;
 
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.UUIDUtil;
 
 import java.util.Objects;
 import java.util.UUID;
@@ -16,6 +19,17 @@ public record ScreenAssembly(
         int panelCount,
         boolean rectangular
 ) {
+    public static final Codec<ScreenAssembly> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            UUIDUtil.CODEC.fieldOf("id").forGetter(ScreenAssembly::id),
+            Direction.CODEC.fieldOf("facing").forGetter(ScreenAssembly::facing),
+            BlockPos.CODEC.fieldOf("origin").forGetter(ScreenAssembly::origin),
+            BlockPos.CODEC.fieldOf("controller_pos").forGetter(ScreenAssembly::controllerPos),
+            Codec.INT.fieldOf("width").forGetter(ScreenAssembly::width),
+            Codec.INT.fieldOf("height").forGetter(ScreenAssembly::height),
+            Codec.INT.fieldOf("panel_count").forGetter(ScreenAssembly::panelCount),
+            Codec.BOOL.fieldOf("rectangular").forGetter(ScreenAssembly::rectangular)
+    ).apply(instance, ScreenAssembly::new));
+
     public ScreenAssembly {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(facing, "facing");

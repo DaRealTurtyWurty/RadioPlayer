@@ -49,6 +49,7 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         translationBuilder.add(ModBlocks.cablePort.asBlock(), "Cable Port");
         translationBuilder.add(ModItems.audioCable.asItem(), "Audio Cable");
         translationBuilder.add(ModItems.videoCable.asItem(), "Video Cable");
+        translationBuilder.add(ModBlocks.flatScreen.asBlock(), "Flat Screen");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {

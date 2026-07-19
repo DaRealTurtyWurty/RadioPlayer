@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "mediabox:block/flat_screen",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mediabox:block/flat_screen"
+    },
+    "facing=south": {
+      "model": "mediabox:block/flat_screen",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "mediabox:block/flat_screen",
+      "y": 270
+    }
+  }
+}

@@ -9,6 +9,7 @@ import dev.turtywurty.mediabox.client.render.globe.SpherePictureRenderer;
 import dev.turtywurty.mediabox.client.render.globe.SphereRenderPipelines;
 import dev.turtywurty.mediabox.client.render.cable.CableRenderPipelines;
 import dev.turtywurty.mediabox.client.render.cable.CableWorldRenderer;
+import dev.turtywurty.mediabox.client.render.screen.ScreenWorldRenderer;
 import net.blay09.mods.balm.client.BalmClient;
 import net.blay09.mods.balm.fabric.platform.runtime.FabricLoadContext;
 import net.fabricmc.api.ClientModInitializer;
@@ -22,8 +23,10 @@ public class FabricMediaBoxClient implements ClientModInitializer {
     public void onInitializeClient() {
         RenderPipelines.register(SphereRenderPipelines.EARTH_NORMAL_MAPPED);
         RenderPipelines.register(CableRenderPipelines.XRAY_LINES);
-        LevelRenderEvents.COLLECT_SUBMITS.register(context ->
-                CableWorldRenderer.submit(context.poseStack(), context.submitNodeCollector()));
+        LevelRenderEvents.COLLECT_SUBMITS.register(context -> {
+            CableWorldRenderer.submit(context.poseStack(), context.submitNodeCollector());
+            ScreenWorldRenderer.submit(context.poseStack(), context.submitNodeCollector());
+        });
         PictureInPictureRendererRegistry.register(_ -> new SpherePictureRenderer());
         BlockEntityRenderers.register(ModBlockEntities.radioPlayer.value(), RadioPlayerBlockEntityRenderer::new);
         BlockEntityRenderers.register(ModBlockEntities.speaker.value(), SpeakerBlockEntityRenderer::new);

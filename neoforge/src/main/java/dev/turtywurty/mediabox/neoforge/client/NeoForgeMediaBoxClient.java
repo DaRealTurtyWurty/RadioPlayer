@@ -10,6 +10,7 @@ import dev.turtywurty.mediabox.client.render.globe.SpherePictureRenderer;
 import dev.turtywurty.mediabox.client.render.globe.SphereRenderPipelines;
 import dev.turtywurty.mediabox.client.render.cable.CableRenderPipelines;
 import dev.turtywurty.mediabox.client.render.cable.CableWorldRenderer;
+import dev.turtywurty.mediabox.client.render.screen.ScreenWorldRenderer;
 import net.blay09.mods.balm.client.BalmClient;
 import net.blay09.mods.balm.neoforge.platform.runtime.NeoForgeLoadContext;
 import net.neoforged.api.distmarker.Dist;
@@ -50,5 +51,6 @@ public class NeoForgeMediaBoxClient {
 
     public static void submitCableGeometry(SubmitCustomGeometryEvent event) {
         CableWorldRenderer.submit(event.getPoseStack(), event.getSubmitNodeCollector());
+        ScreenWorldRenderer.submit(event.getPoseStack(), event.getSubmitNodeCollector());
     }
 }

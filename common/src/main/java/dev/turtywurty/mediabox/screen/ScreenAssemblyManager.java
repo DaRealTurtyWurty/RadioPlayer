@@ -2,6 +2,7 @@ package dev.turtywurty.mediabox.screen;
 
 import dev.turtywurty.mediabox.block.FlatScreenBlock;
 import dev.turtywurty.mediabox.block.entity.FlatScreenBlockEntity;
+import dev.turtywurty.mediabox.video.ScreenPlaybackSync;
 import dev.turtywurty.mediabox.video.VideoSessionState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -21,7 +22,7 @@ public final class ScreenAssemblyManager {
         if (!(state.getBlock() instanceof FlatScreenBlock))
             return;
 
-        rebuildComponents(level, List.of(seed.immutable()), state.getValue(FlatScreenBlock.FACING));
+        rebuildComponents(level, List.of(seed.immutable()), state.getValue(FlatScreenBlock.FACING), null);
     }
 
     public static void rebuildAfterRemoval(ServerLevel level, BlockPos removedPos, Direction oldFacing) {
@@ -34,10 +35,21 @@ public final class ScreenAssemblyManager {
                 removedPos.below(),
                 removedPos.relative(right),
                 removedPos.relative(right.getOpposite())
-        ), oldFacing);
+        ), oldFacing, removedPos);
     }
 
-    private static void rebuildComponents(ServerLevel level, List<BlockPos> seeds, Direction facing) {
+    public static void ensureRegistered(ServerLevel level, ScreenAssembly assembly) {
+        ScreenSavedData data = ScreenSavedData.get(level);
+        if (data.upsert(assembly)) {
+            ScreenSync.broadcastUpsert(level, assembly);
+        }
+    }
+
+    private static void rebuildComponents(
+            ServerLevel level,
+            List<BlockPos> seeds,
+            Direction facing,
+            @Nullable BlockPos removedPos) {
         Set<BlockPos> discovered = new HashSet<>();
         List<Component> components = new ArrayList<>();
         for (BlockPos seed : seeds) {
@@ -67,7 +79,20 @@ public final class ScreenAssemblyManager {
             return comparePanelPositions(first.controllerPos(), second.controllerPos(), facing);
         });
 
+        Set<UUID> previousIds = new HashSet<>();
+        for (Component component : components) {
+            previousIds.addAll(component.previousAssemblies().keySet());
+        }
+
+        ScreenSavedData data = ScreenSavedData.get(level);
+        if (components.isEmpty() && removedPos != null) {
+            data.findRemovedSingleton(removedPos, facing)
+                    .map(ScreenAssembly::id)
+                    .ifPresent(previousIds::add);
+        }
+
         Set<UUID> claimedIds = new HashSet<>();
+        List<ScreenAssembly> rebuiltAssemblies = new ArrayList<>();
         for (Component component : components) {
             PreviousAssembly previous = choosePreviousAssembly(component, claimedIds);
             UUID id = previous == null ? UUID.randomUUID() : previous.id();
@@ -87,6 +112,27 @@ public final class ScreenAssemblyManager {
                     ? null
                     : previous.state().input();
             applyAssembly(level, component, assembly, input);
+            rebuiltAssemblies.add(assembly);
+        }
+
+        Set<UUID> rebuiltIds = new HashSet<>();
+        for (ScreenAssembly assembly : rebuiltAssemblies) {
+            rebuiltIds.add(assembly.id());
+        }
+
+        previousIds.removeAll(rebuiltIds);
+        for (UUID removedId : previousIds) {
+            if (data.remove(removedId)) {
+                ScreenSync.broadcastRemoval(level, removedId);
+            }
+        }
+
+        for (ScreenAssembly assembly : rebuiltAssemblies) {
+            if (data.upsert(assembly)) {
+                ScreenSync.broadcastUpsert(level, assembly);
+            }
+
+            ScreenPlaybackSync.ensureTestAssignment(level, assembly.id());
         }
     }
 

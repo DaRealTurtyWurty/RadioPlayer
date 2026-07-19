@@ -1,12 +1,7 @@
 package dev.turtywurty.mediabox.fabric.datagen;
 
 import dev.turtywurty.mediabox.MediaBox;
-import dev.turtywurty.mediabox.block.CablePortBlock;
-import dev.turtywurty.mediabox.block.GlobeBlock;
-import dev.turtywurty.mediabox.block.HorizontalDirection8;
-import dev.turtywurty.mediabox.block.ModBlocks;
-import dev.turtywurty.mediabox.block.RadioPlayerBlock;
-import dev.turtywurty.mediabox.block.SpeakerBlock;
+import dev.turtywurty.mediabox.block.*;
 import dev.turtywurty.mediabox.item.ModItems;
 import net.fabricmc.fabric.api.client.datagen.v1.provider.FabricModelProvider;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
@@ -23,12 +18,7 @@ import net.minecraft.util.random.WeightedList;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 
-import static net.minecraft.client.data.models.BlockModelGenerators.NOP;
-import static net.minecraft.client.data.models.BlockModelGenerators.X_ROT_270;
-import static net.minecraft.client.data.models.BlockModelGenerators.X_ROT_90;
-import static net.minecraft.client.data.models.BlockModelGenerators.Y_ROT_180;
-import static net.minecraft.client.data.models.BlockModelGenerators.Y_ROT_270;
-import static net.minecraft.client.data.models.BlockModelGenerators.Y_ROT_90;
+import static net.minecraft.client.data.models.BlockModelGenerators.*;
 
 public class ModModelProvider extends FabricModelProvider {
     public ModModelProvider(FabricPackOutput output) {
@@ -38,8 +28,8 @@ public class ModModelProvider extends FabricModelProvider {
     @Override
     public void generateBlockStateModels(BlockModelGenerators blockModelGenerators) {
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
-                ModBlocks.cablePort.asBlock(),
-                new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/cable_port")))))
+                        ModBlocks.cablePort.asBlock(),
+                        new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/cable_port")))))
                 .with(PropertyDispatch.modify(CablePortBlock.FACING)
                         .select(Direction.DOWN, X_ROT_90)
                         .select(Direction.UP, X_ROT_270)
@@ -49,8 +39,8 @@ public class ModModelProvider extends FabricModelProvider {
                         .select(Direction.EAST, Y_ROT_90)));
 
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
-                ModBlocks.radioPlayer.asBlock(),
-                new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/radio")))))
+                        ModBlocks.radioPlayer.asBlock(),
+                        new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/radio")))))
                 .with(PropertyDispatch.modify(RadioPlayerBlock.FACING)
                         .select(HorizontalDirection8.NORTH, NOP)
                         .select(HorizontalDirection8.NORTH_EAST, Y_ROT_90)
@@ -62,8 +52,8 @@ public class ModModelProvider extends FabricModelProvider {
                         .select(HorizontalDirection8.NORTH_WEST, NOP)));
 
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
-                ModBlocks.globe.asBlock(),
-                new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/globe")))))
+                        ModBlocks.globe.asBlock(),
+                        new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/globe")))))
                 .with(PropertyDispatch.modify(GlobeBlock.FACING)
                         .select(Direction.NORTH, NOP)
                         .select(Direction.EAST, Y_ROT_90)
@@ -71,8 +61,8 @@ public class ModModelProvider extends FabricModelProvider {
                         .select(Direction.WEST, Y_ROT_270)));
 
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
-                ModBlocks.speaker.asBlock(),
-                new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/speaker")))))
+                        ModBlocks.speaker.asBlock(),
+                        new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/speaker")))))
                 .with(PropertyDispatch.modify(SpeakerBlock.FACING)
                         .select(HorizontalDirection8.NORTH, NOP)
                         .select(HorizontalDirection8.NORTH_EAST, Y_ROT_90)
@@ -88,13 +78,22 @@ public class ModModelProvider extends FabricModelProvider {
         speakerBlockState(blockModelGenerators, ModBlocks.bookshelfSpeaker.asBlock(), "bookshelf_speaker");
         speakerBlockState(blockModelGenerators, ModBlocks.floorStandingSpeaker.asBlock(), "floor_standing_speaker");
         speakerBlockState(blockModelGenerators, ModBlocks.subwoofer.asBlock(), "subwoofer");
+
+        blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
+                        ModBlocks.flatScreen.asBlock(),
+                        new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/flat_screen")))))
+                .with(PropertyDispatch.modify(FlatScreenBlock.FACING)
+                        .select(Direction.NORTH, NOP)
+                        .select(Direction.EAST, Y_ROT_90)
+                        .select(Direction.SOUTH, Y_ROT_180)
+                        .select(Direction.WEST, Y_ROT_270)));
     }
 
     private static void speakerBlockState(BlockModelGenerators blockModelGenerators, Block block,
                                           String modelName) {
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
-                block,
-                new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/" + modelName)))))
+                        block,
+                        new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/" + modelName)))))
                 .with(PropertyDispatch.modify(SpeakerBlock.FACING)
                         .select(HorizontalDirection8.NORTH, NOP)
                         .select(HorizontalDirection8.NORTH_EAST, Y_ROT_90)

@@ -4,9 +4,9 @@ import dev.turtywurty.mediabox.block.ModBlockEntities;
 import dev.turtywurty.mediabox.block.ModBlocks;
 import dev.turtywurty.mediabox.ffmpeg.FfmpegNatives;
 import dev.turtywurty.mediabox.item.ModItems;
-import dev.turtywurty.mediabox.network.UpdateRadioUrlMessage;
-import dev.turtywurty.mediabox.network.CableSnapshotMessage;
+import dev.turtywurty.mediabox.network.*;
 import dev.turtywurty.mediabox.cable.CableSync;
+import dev.turtywurty.mediabox.screen.ScreenSync;
 import net.blay09.mods.balm.Balm;
 import net.blay09.mods.balm.core.BalmRegistrars;
 import net.blay09.mods.balm.platform.event.callback.ServerLifecycleCallback;
@@ -46,13 +46,46 @@ public class MediaBox {
                 CableSnapshotMessage.CODEC,
                 CableSnapshotMessage::handle);
 
-        ServerPlayerCallback.Join.EVENT.register(player -> CableSync.sendSnapshot(player, player.level()));
-        ServerPlayerCallback.Respawn.EVENT.register((oldPlayer, newPlayer) ->
-                CableSync.sendSnapshot(newPlayer, newPlayer.level()));
+        Balm.networking().registerClientboundPacket(
+                ScreenAssemblySnapshotMessage.TYPE,
+                ScreenAssemblySnapshotMessage.class,
+                ScreenAssemblySnapshotMessage.CODEC,
+                ScreenAssemblySnapshotMessage::handle);
+
+        Balm.networking().registerClientboundPacket(
+                ScreenAssemblyUpsertMessage.TYPE,
+                ScreenAssemblyUpsertMessage.class,
+                ScreenAssemblyUpsertMessage.CODEC,
+                ScreenAssemblyUpsertMessage::handle);
+
+        Balm.networking().registerClientboundPacket(
+                ScreenAssemblyRemovalMessage.TYPE,
+                ScreenAssemblyRemovalMessage.class,
+                ScreenAssemblyRemovalMessage.CODEC,
+                ScreenAssemblyRemovalMessage::handle);
+
+        Balm.networking().registerClientboundPacket(
+                ScreenPlaybackUpsertMessage.TYPE,
+                ScreenPlaybackUpsertMessage.class,
+                ScreenPlaybackUpsertMessage.CODEC,
+                ScreenPlaybackUpsertMessage::handle);
+
+        ServerPlayerCallback.Join.EVENT.register(player -> {
+            CableSync.sendSnapshot(player, player.level());
+            ScreenSync.sendSnapshot(player, player.level());
+        });
+
+        ServerPlayerCallback.Respawn.EVENT.register((oldPlayer, newPlayer) -> {
+            CableSync.sendSnapshot(newPlayer, newPlayer.level());
+            ScreenSync.sendSnapshot(newPlayer, newPlayer.level());
+        });
+
         ServerPlayerCallback.DimensionChange.EVENT.register((player, from, to) -> {
             var level = player.level().getServer().getLevel(to);
-            if (level != null)
+            if (level != null) {
                 CableSync.sendSnapshot(player, level);
+                ScreenSync.sendSnapshot(player, level);
+            }
         });
     }
 }

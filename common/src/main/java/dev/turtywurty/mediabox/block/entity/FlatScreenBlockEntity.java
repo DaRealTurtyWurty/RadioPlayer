@@ -159,11 +159,15 @@ public class FlatScreenBlockEntity extends BlockEntity {
             return;
 
         screen.checkedAssemblyAfterLoad = true;
-        if (level instanceof ServerLevel serverLevel
-                && (screen.screenId == null
+        if (!(level instanceof ServerLevel serverLevel))
+            return;
+
+        if (screen.screenId == null
                 || screen.controllerPos == null
-                || (screen.isController() && screen.screenState == null))) {
+                || (screen.isController() && screen.screenState == null)) {
             ScreenAssemblyManager.rebuildFrom(serverLevel, pos);
+        } else if (screen.screenState != null) {
+            ScreenAssemblyManager.ensureRegistered(serverLevel, screen.screenState.assembly());
         }
     }
 
