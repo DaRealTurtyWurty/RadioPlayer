@@ -1,7 +1,5 @@
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.security.MessageDigest
-import java.util.zip.ZipFile
+import dev.turtywurty.mediabox.gradle.DownloadFfmpegNatives
+import dev.turtywurty.mediabox.gradle.ExtractFfmpegNatives
 
 plugins {
     id 'multiloader-common'
@@ -12,7 +10,6 @@ class FfmpegNativeBundle {
     String id
     String url
     String sha256
-    String sha256Url
     Map<String, String> binaryPathsInArchive
 }
 
@@ -47,7 +44,7 @@ def allFfmpegNatives = [
         new FfmpegNativeBundle(
                 id: 'macos-x64',
                 url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-x64.zip',
-                sha256Url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-x64.zip.sha256',
+                sha256: 'da9af2feb8ec94f6a1828cc3bbde5c665ed9df745c53d0fcb8ff3e4346481852',
                 binaryPathsInArchive: [
                         ffmpeg : 'macos-x64/ffmpeg',
                         ffprobe: 'macos-x64/ffprobe'
@@ -56,7 +53,7 @@ def allFfmpegNatives = [
         new FfmpegNativeBundle(
                 id: 'macos-arm64',
                 url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-arm64.zip',
-                sha256Url: 'https://github.com/DaRealTurtyWurty/RadioPlayer/releases/download/ffmpeg-n8.1.2/ffmpeg-macos-arm64.zip.sha256',
+                sha256: 'f4d18eae5f8b2a4c812f18db396d0116f440ddda2d91b6c7c9399830b311d3c9',
                 binaryPathsInArchive: [
                         ffmpeg : 'macos-arm64/ffmpeg',
                         ffprobe: 'macos-arm64/ffprobe'
@@ -115,28 +112,6 @@ def ffmpegDownloadDir = layout.dir(
 )
 def ffmpegResourceRootDir = layout.buildDirectory.dir('generated/ffmpegResources')
 
-static String sha256(File file) {
-    def digest = MessageDigest.getInstance('SHA-256')
-    file.withInputStream { input ->
-        byte[] buffer = new byte[8192]
-        int read
-        while ((read = input.read(buffer)) != -1) {
-            digest.update(buffer, 0, read)
-        }
-    }
-    return digest.digest().collect { String.format('%02x', it) }.join()
-}
-
-def download = { String url, File outputFile ->
-    def connection = url.toURL().openConnection()
-    connection.connectTimeout = 30_000
-    connection.readTimeout = 120_000
-    connection.setRequestProperty('User-Agent', 'MediaBox Gradle build')
-    connection.inputStream.withCloseable { input ->
-        outputFile.withOutputStream { output -> output << input }
-    }
-}
-
 neoForge {
     neoFormVersion = libs.neoForm.get().version
     def at = file('src/main/resources/META-INF/accesstransformer.cfg')
@@ -155,11 +130,6 @@ apply from: rootProject.file('repositories.gradle')
 apply from: 'dependencies.gradle'
 
 configurations {
-    ffmpegExtractor {
-        canBeResolved = true
-        canBeConsumed = false
-        transitive = false
-    }
     commonJava {
         canBeResolved = false
         canBeConsumed = true
@@ -178,10 +148,6 @@ configurations {
     }
 }
 
-dependencies {
-    ffmpegExtractor 'org.tukaani:xz:1.10'
-}
-
 sourceSets {
     generated {
         resources {
@@ -190,135 +156,41 @@ sourceSets {
     }
 }
 
-tasks.register('downloadFfmpegNatives') {
-    outputs.dir(ffmpegDownloadDir)
-
-    doLast {
-        logger.lifecycle("Bundling FFmpeg natives for: ${ffmpegNatives.collect { it.id }.join(', ')}")
-        def outputDir = ffmpegDownloadDir.get().asFile
-        outputDir.mkdirs()
-
-        def downloadAndVerify = { String id, String url, String expectedSha256 ->
-            def fileName = url.substring(url.lastIndexOf('/') + 1)
-            def outputFile = new File(outputDir, fileName)
-            try {
-                if (!outputFile.exists()) {
-                    logger.lifecycle("Downloading ${id}...")
-                    download(url, outputFile)
-                }
-
-                if (expectedSha256 == null) {
-                    def checksumFile = new File(outputDir, fileName + '.sha256')
-                    if (!checksumFile.exists()) {
-                        def nativeBundle = ffmpegNatives.find { it.url == url }
-                        download(nativeBundle.sha256Url, checksumFile)
-                    }
-                    expectedSha256 = checksumFile.text.trim().split(/\s+/)[0]
-                }
-
-                def actualSha256 = sha256(outputFile)
-                if (!actualSha256.equalsIgnoreCase(expectedSha256)) {
-                    throw new GradleException("""SHA-256 mismatch for ${id}
-Expected: ${expectedSha256}
-Actual:   ${actualSha256}
-File:     ${outputFile.absolutePath}
-""")
-                }
-            } catch (Exception exception) {
-                outputFile.delete()
-                throw new GradleException("Failed to download or verify ${id}", exception)
-            }
-        }
-
-        ffmpegNatives.each { nativeBundle ->
-            downloadAndVerify("${nativeBundle.id} FFmpeg bundle", nativeBundle.url, nativeBundle.sha256)
-        }
+def archiveFileProviders = ffmpegNatives.collect { nativeBundle ->
+    ffmpegDownloadDir.map { directory ->
+        directory.file(DownloadFfmpegNatives.fileName(nativeBundle.url))
     }
 }
 
-def extractZipEntry = { File archiveFile, String entryName, File outputFile ->
-    ZipFile zipFile = new ZipFile(archiveFile)
-    try {
-        def entry = zipFile.getEntry(entryName)
-        if (entry == null) {
-            throw new GradleException("Missing ${entryName} in ${archiveFile.absolutePath}")
-        }
-        zipFile.getInputStream(entry).withCloseable { input ->
-            Files.copy(input, outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
-    } finally {
-        zipFile.close()
-    }
+def downloadFfmpegNatives = tasks.register('downloadFfmpegNatives', DownloadFfmpegNatives) {
+    group = 'ffmpeg'
+    description = 'Downloads and verifies the selected FFmpeg native archives.'
+
+    bundleUrls.set(ffmpegNatives.collectEntries { [(it.id): it.url] })
+    bundleChecksums.set(ffmpegNatives.collectEntries { [(it.id): it.sha256] })
+    destinationDirectory.set(ffmpegDownloadDir)
+    downloadedArchives.from(archiveFileProviders)
 }
 
-def extractTarXzEntry = { File archiveFile, String entryName, File outputFile ->
-    boolean extracted = false
-    archiveFile.withInputStream { fileInput ->
-        def tarInputClass = Class.forName(
-                'org.apache.commons.compress.archivers.tar.TarArchiveInputStream',
-                true,
-                gradle.class.classLoader
-        )
-        URLClassLoader xzClassLoader = new URLClassLoader(
-                configurations.ffmpegExtractor.collect { it.toURI().toURL() } as URL[],
-                tarInputClass.classLoader
-        )
-        def xzInput = xzClassLoader.loadClass('org.tukaani.xz.XZInputStream')
-                .getConstructor(InputStream)
-                .newInstance(fileInput)
-        def tarInput = tarInputClass.getConstructor(InputStream).newInstance(xzInput)
-        try {
-            def entry
-            while ((entry = tarInputClass.getMethod('getNextTarEntry').invoke(tarInput)) != null) {
-                if (entry.name == entryName) {
-                    outputFile.withOutputStream { output -> output << tarInput }
-                    extracted = true
-                    break
-                }
-            }
-        } finally {
-            tarInput.close()
-            xzClassLoader.close()
-        }
-    }
-    if (!extracted) {
-        throw new GradleException("Missing ${entryName} in ${archiveFile.absolutePath}")
-    }
-}
+def extractFfmpegNatives = tasks.register('extractFfmpegNatives', ExtractFfmpegNatives) {
+    group = 'ffmpeg'
+    description = 'Extracts FFmpeg and FFprobe from the selected native archives.'
 
-tasks.register('extractFfmpegNatives') {
-    dependsOn('downloadFfmpegNatives')
-    outputs.dir(ffmpegResourceRootDir)
-
-    doLast {
-        def outputDir = ffmpegResourceRootDir.get().asFile
-        delete(outputDir)
-        outputDir.mkdirs()
-
-        ffmpegNatives.each { nativeBundle ->
-            nativeBundle.binaryPathsInArchive.each { tool, archivePath ->
-                def outputName = tool + (nativeBundle.id.startsWith('windows-') ? '.exe' : '')
-                def outputFile = new File(outputDir, "ffmpeg/${nativeBundle.id}/${outputName}")
-                outputFile.parentFile.mkdirs()
-
-                if (nativeBundle.url.endsWith('.zip')) {
-                    def fileName = nativeBundle.url.substring(nativeBundle.url.lastIndexOf('/') + 1)
-                    def archiveFile = new File(ffmpegDownloadDir.get().asFile, fileName)
-                    extractZipEntry(archiveFile, archivePath, outputFile)
-                } else if (nativeBundle.url.endsWith('.tar.xz')) {
-                    def fileName = nativeBundle.url.substring(nativeBundle.url.lastIndexOf('/') + 1)
-                    def archiveFile = new File(ffmpegDownloadDir.get().asFile, fileName)
-                    extractTarXzEntry(archiveFile, archivePath, outputFile)
-                } else {
-                    throw new GradleException("Unsupported archive type: ${nativeBundle.url}")
-                }
-            }
-        }
-    }
+    archiveFileNames.set(ffmpegNatives.collectEntries {
+        [(it.id): DownloadFfmpegNatives.fileName(it.url)]
+    })
+    ffmpegEntryPaths.set(ffmpegNatives.collectEntries {
+        [(it.id): it.binaryPathsInArchive.ffmpeg]
+    })
+    ffprobeEntryPaths.set(ffmpegNatives.collectEntries {
+        [(it.id): it.binaryPathsInArchive.ffprobe]
+    })
+    archiveFiles.from(downloadFfmpegNatives)
+    outputDirectory.set(ffmpegResourceRootDir)
 }
 
 tasks.named('processResources') {
-    dependsOn('extractFfmpegNatives')
+    dependsOn(extractFfmpegNatives)
 }
 
 artifacts {
@@ -326,6 +198,6 @@ artifacts {
     commonResources sourceSets.main.resources.sourceDirectories.singleFile
     commonGeneratedResources sourceSets.generated.resources.sourceDirectories.singleFile
     commonNativeResources(ffmpegResourceRootDir) {
-        builtBy tasks.named('extractFfmpegNatives')
+        builtBy extractFfmpegNatives
     }
 }
