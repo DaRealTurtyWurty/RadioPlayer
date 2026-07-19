@@ -245,7 +245,6 @@ public final class CableManager {
         if (!cable.first().dimension().equals(cable.second().dimension()))
             throw new IllegalArgumentException("A visible cable cannot connect ports in different dimensions");
 
-        Objects.requireNonNull(cable.route(), "cable.route");
     }
 
     private static void validateEndpoint(PortEndpoint endpoint, String name) {

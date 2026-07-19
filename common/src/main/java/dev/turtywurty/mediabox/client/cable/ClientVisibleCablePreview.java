@@ -1,12 +1,12 @@
 package dev.turtywurty.mediabox.client.cable;
 
-import dev.turtywurty.mediabox.cable.CableConstants;
 import dev.turtywurty.mediabox.cable.CableItemData;
 import dev.turtywurty.mediabox.cable.MediaPortLookup;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.ResolvedMediaPort;
+import dev.turtywurty.mediabox.cable.VisibleCableCollision;
 import dev.turtywurty.mediabox.cable.VisibleCableRoute;
-import dev.turtywurty.mediabox.cable.VisibleCableRoutePlanner;
+import dev.turtywurty.mediabox.cable.VisibleCableRouteFactory;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCablePortProvider;
 import dev.turtywurty.mediabox.item.AudioCableItem;
 import net.minecraft.client.Minecraft;
@@ -15,7 +15,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 
-import java.util.List;
 import java.util.Optional;
 
 public final class ClientVisibleCablePreview {
@@ -72,41 +71,14 @@ public final class ClientVisibleCablePreview {
             ResolvedMediaPort second,
             int availableItems,
             boolean creative) {
-        double directLength = VisibleCableRoutePlanner.portPosition(first)
-                .distanceTo(VisibleCableRoutePlanner.portPosition(second));
-        int minimumItems = CableConstants.itemsForLength(directLength);
-        int maximumAffordableItems = creative ? minimumItems + 16 : Math.max(1, availableItems);
-        Optional<VisibleCableRoutePlanner.PurchasedRoute> affordable =
-                VisibleCableRoutePlanner.findPurchasableRoute(
-                        level,
-                        first,
-                        second,
-                        maximumAffordableItems);
-        if (affordable.isPresent()) {
-            return new Preview(
-                    affordable.get().route(),
-                    true,
-                    affordable.get().cableItems());
-        }
-
-        Optional<VisibleCableRoutePlanner.PurchasedRoute> expanded = creative
-                ? Optional.empty()
-                : VisibleCableRoutePlanner.findPurchasableRoute(
-                        level,
-                        first,
-                        second,
-                        Math.max(minimumItems + 16, availableItems + 1));
-        if (expanded.isPresent()) {
-            return new Preview(
-                    expanded.get().route(),
-                    false,
-                    expanded.get().cableItems());
-        }
-
-        VisibleCableRoute fallback = new VisibleCableRoute(List.of(
-                VisibleCableRoutePlanner.portPosition(first),
-                VisibleCableRoutePlanner.portPosition(second)));
-        return new Preview(fallback, false, -1);
+        VisibleCableRouteFactory.PurchasedRoute route = VisibleCableRouteFactory.create(first, second);
+        boolean affordable = creative || availableItems >= route.cableItems();
+        boolean clear = VisibleCableCollision.isClear(
+                level,
+                route.route(),
+                first.endpoint().pos(),
+                second.endpoint().pos());
+        return new Preview(route.route(), affordable && clear, route.cableItems(), !clear);
     }
 
     private static ItemStack heldCableStack(Minecraft minecraft) {
@@ -122,19 +94,19 @@ public final class ClientVisibleCablePreview {
     }
 
     private static void showStatus(Minecraft minecraft, Preview preview) {
-        if (preview.valid()) {
+        if (preview.blocked()) {
+            minecraft.player.sendOverlayMessage(Component.literal("Cable path is blocked"));
+        } else if (preview.valid()) {
             minecraft.player.sendOverlayMessage(Component.literal(
                     "Cable route: " + preview.requiredItems()
                             + (preview.requiredItems() == 1 ? " cable" : " cables")));
-        } else if (preview.requiredItems() > 0) {
+        } else {
             minecraft.player.sendOverlayMessage(Component.literal(
                     "Needs " + preview.requiredItems() + " cable items"));
-        } else {
-            minecraft.player.sendOverlayMessage(Component.literal("No cable route available"));
         }
     }
 
-    public record Preview(VisibleCableRoute route, boolean valid, int requiredItems) {
+    public record Preview(VisibleCableRoute route, boolean valid, int requiredItems, boolean blocked) {
     }
 
     private record PreviewKey(

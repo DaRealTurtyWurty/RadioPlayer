@@ -15,6 +15,7 @@ public final class ClientCableState {
     }
 
     public static void apply(CableSnapshotMessage message) {
+        ClientVisibleCableRouteCache.retainConnections(message.visibleConnections());
         ClientConcealedCableRouteCache.retainRuns(message.concealedRuns());
         snapshot = new Snapshot(
                 message.dimension(),
@@ -27,6 +28,7 @@ public final class ClientCableState {
     }
 
     public static void clear() {
+        ClientVisibleCableRouteCache.clear();
         ClientConcealedCableRouteCache.clear();
         snapshot = Snapshot.EMPTY;
     }

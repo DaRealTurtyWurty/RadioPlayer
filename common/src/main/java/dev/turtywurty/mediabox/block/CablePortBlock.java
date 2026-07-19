@@ -2,7 +2,7 @@ package dev.turtywurty.mediabox.block;
 
 import dev.turtywurty.mediabox.cable.CableSync;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
-import dev.turtywurty.mediabox.cable.VisibleCablePhysics;
+import dev.turtywurty.mediabox.cable.CableConnectionLifecycle;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
@@ -133,7 +133,7 @@ public class CablePortBlock extends Block implements EntityBlock, SimpleWaterlog
             @NonNull ServerLevel level,
             @NonNull BlockPos pos,
             boolean movedByPiston) {
-        VisibleCablePhysics.removePort(level, new PortEndpoint(
+        CableConnectionLifecycle.removePort(level, new PortEndpoint(
                 level.dimension(),
                 pos,
                 CablePortBlockEntity.AUDIO_PORT_ID), true);

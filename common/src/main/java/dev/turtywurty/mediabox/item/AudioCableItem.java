@@ -12,7 +12,8 @@ import dev.turtywurty.mediabox.cable.PortDirection;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.ResolvedMediaPort;
 import dev.turtywurty.mediabox.cable.VisibleCableConnection;
-import dev.turtywurty.mediabox.cable.VisibleCableRoutePlanner;
+import dev.turtywurty.mediabox.cable.VisibleCableCollision;
+import dev.turtywurty.mediabox.cable.VisibleCableRouteFactory;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCableInstaller;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCablePortProvider;
 import net.minecraft.network.chat.Component;
@@ -106,28 +107,23 @@ public class AudioCableItem extends Item {
                         requiredItems);
             } else {
                 validateVisibleConnection(serverLevel, manager, firstPort.get(), clicked);
-                double directLength = VisibleCableRoutePlanner.portPosition(firstPort.get())
-                        .distanceTo(VisibleCableRoutePlanner.portPosition(clicked));
-                int minimumItems = CableConstants.itemsForLength(directLength);
-                int maximumItems = consumesItems ? stack.getCount() : minimumItems + 16;
-                Optional<VisibleCableRoutePlanner.PurchasedRoute> purchasedRoute =
-                        VisibleCableRoutePlanner.findPurchasableRoute(
-                                serverLevel,
-                                firstPort.get(),
-                                clicked,
-                                maximumItems);
-                if (purchasedRoute.isEmpty())
-                    throw new IllegalArgumentException("No collision-free cable route fits the available cable");
-
-                requiredItems = purchasedRoute.get().cableItems();
+                VisibleCableRouteFactory.PurchasedRoute candidate =
+                        VisibleCableRouteFactory.create(firstPort.get(), clicked);
+                requiredItems = candidate.cableItems();
                 requireCableItems(stack, requiredItems, consumesItems);
+                if (!VisibleCableCollision.isClear(
+                        serverLevel,
+                        candidate.route(),
+                        firstEndpoint.pos(),
+                        clicked.endpoint().pos()))
+                    throw new IllegalArgumentException("The cable path is blocked");
+
                 savedData.addVisibleCable(new VisibleCableConnection(
                         UUID.randomUUID(),
                         firstEndpoint,
                         clicked.endpoint(),
                         MediaSignalType.AUDIO,
-                        requiredItems,
-                        purchasedRoute.get().route()));
+                        requiredItems));
                 CableSync.broadcastSnapshot(serverLevel);
             }
 

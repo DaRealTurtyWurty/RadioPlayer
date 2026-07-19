@@ -4,7 +4,7 @@ import dev.turtywurty.mediabox.api.client.MediaBoxClientAPI;
 import dev.turtywurty.mediabox.block.entity.RadioPlayerBlockEntity;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.CableSync;
-import dev.turtywurty.mediabox.cable.VisibleCablePhysics;
+import dev.turtywurty.mediabox.cable.CableConnectionLifecycle;
 import dev.turtywurty.mediabox.item.AudioCableItem;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -119,7 +119,7 @@ public class RadioPlayerBlock extends Block implements EntityBlock {
             ServerLevel level,
             BlockPos pos,
             boolean movedByPiston) {
-        VisibleCablePhysics.removePort(level, new PortEndpoint(
+        CableConnectionLifecycle.removePort(level, new PortEndpoint(
                 level.dimension(),
                 pos,
                 RadioPlayerBlockEntity.AUDIO_OUTPUT_PORT_ID), false);

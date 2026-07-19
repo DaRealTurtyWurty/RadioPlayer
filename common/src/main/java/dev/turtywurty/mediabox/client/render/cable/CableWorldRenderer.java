@@ -6,6 +6,7 @@ import dev.turtywurty.mediabox.client.cable.ClientCableState;
 import dev.turtywurty.mediabox.client.cable.ClientConcealedCableRouteCache;
 import dev.turtywurty.mediabox.client.cable.ClientConcealedCableSegment;
 import dev.turtywurty.mediabox.client.cable.ClientVisibleCablePreview;
+import dev.turtywurty.mediabox.client.cable.ClientVisibleCableRouteCache;
 import dev.turtywurty.mediabox.item.ModItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -90,7 +91,11 @@ public final class CableWorldRenderer {
             PoseStack poseStack,
             SubmitNodeCollector submitNodeCollector,
             VisibleCableConnection connection) {
-        var points = connection.route().points();
+        var route = ClientVisibleCableRouteCache.route(level, connection);
+        if (route.isEmpty())
+            return;
+
+        var points = route.get().points();
         Vec3 midpoint = points.get(points.size() / 2);
         if (midpoint.distanceToSqr(cameraPos) > VISIBLE_RENDER_DISTANCE_SQUARED)
             return;
