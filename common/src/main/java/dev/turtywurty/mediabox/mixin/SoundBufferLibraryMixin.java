@@ -28,7 +28,7 @@ public class SoundBufferLibraryMixin {
 
         cir.setReturnValue(CompletableFuture.supplyAsync(() -> {
             try {
-                AudioStream decodedStream = AudioStreamDecoders.open(source.getMediaLocation());
+                AudioStream decodedStream = AudioStreamDecoders.open(source.getPlaybackState());
                 MediaSoundInstance.markReady(location);
                 return new SpatialMixerAudioStream(source, decodedStream);
             } catch (IOException exception) {

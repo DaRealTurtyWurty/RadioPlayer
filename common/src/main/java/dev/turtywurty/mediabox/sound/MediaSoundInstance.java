@@ -26,11 +26,13 @@ public class MediaSoundInstance implements TickableSoundInstance {
     private final Sound sound;
     private final WeighedSoundEvents soundEvents;
     private final long createdAtMillis = System.currentTimeMillis();
+    private volatile float playbackRate;
     private boolean stopped;
 
     public MediaSoundInstance(BlockPos sourcePos, AudioPlaybackState playbackState) {
         this.sourcePos = sourcePos;
         this.playbackState = playbackState;
+        this.playbackRate = (float) playbackState.playbackRate();
 
         this.identifier = MediaBox.id(STREAM_PATH + Long.toHexString(sourcePos.asLong()) + "/" + Integer.toHexString(playbackState.hashCode()));
         this.sound = new Sound(
@@ -71,6 +73,10 @@ public class MediaSoundInstance implements TickableSoundInstance {
 
     public boolean isStreamReady() {
         return READY_BY_SOUND_PATH.getOrDefault(this.sound.getPath(), false);
+    }
+
+    public void setPlaybackRate(double playbackRate) {
+        this.playbackRate = (float) Math.clamp(playbackRate, 0.5, 2.0);
     }
 
     @Override
@@ -125,7 +131,7 @@ public class MediaSoundInstance implements TickableSoundInstance {
 
     @Override
     public float getPitch() {
-        return 1.0F;
+        return this.playbackRate;
     }
 
     @Override

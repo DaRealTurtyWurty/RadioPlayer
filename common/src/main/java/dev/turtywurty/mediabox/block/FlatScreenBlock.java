@@ -2,13 +2,19 @@ package dev.turtywurty.mediabox.block;
 
 import dev.turtywurty.mediabox.api.client.MediaBoxClientAPI;
 import dev.turtywurty.mediabox.block.entity.FlatScreenBlockEntity;
+import dev.turtywurty.mediabox.cable.CableConnectionLifecycle;
+import dev.turtywurty.mediabox.cable.CableSync;
+import dev.turtywurty.mediabox.cable.PortEndpoint;
+import dev.turtywurty.mediabox.item.CableItem;
 import dev.turtywurty.mediabox.screen.ScreenAssemblyManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -42,6 +48,22 @@ public class FlatScreenBlock extends Block implements EntityBlock {
     @Override
     public @Nullable BlockState getStateForPlacement(BlockPlaceContext context) {
         return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected @NonNull InteractionResult useItemOn(
+            @NonNull ItemStack stack,
+            @NonNull BlockState state,
+            @NonNull Level level,
+            @NonNull BlockPos pos,
+            @NonNull Player player,
+            @NonNull InteractionHand hand,
+            @NonNull BlockHitResult hitResult
+    ) {
+        if (stack.getItem() instanceof CableItem)
+            return InteractionResult.PASS;
+
+        return super.useItemOn(stack, state, level, pos, player, hand, hitResult);
     }
 
     @Override
@@ -122,6 +144,12 @@ public class FlatScreenBlock extends Block implements EntityBlock {
             @NonNull BlockPos pos,
             boolean movedByPiston
     ) {
+        CableConnectionLifecycle.removePort(level, new PortEndpoint(
+                level.dimension(),
+                pos,
+                FlatScreenBlockEntity.AUDIO_OUTPUT_PORT_ID
+        ), false);
+        CableSync.broadcastSnapshot(level);
         ScreenAssemblyManager.rebuildAfterRemoval(level, pos, state.getValue(FACING));
         super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
     }

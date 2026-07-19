@@ -48,7 +48,7 @@ public final class ClientAudioSource {
     }
 
     public boolean isFor(AudioPlaybackState playbackState) {
-        return this.playbackState.equals(playbackState);
+        return this.playbackState.isSamePlayback(playbackState);
     }
 
     public boolean shouldRestart(Minecraft minecraft) {
@@ -62,6 +62,12 @@ public final class ClientAudioSource {
 
     public void updateEmitters(List<AudioEmitter> emitters) {
         this.emitters = List.copyOf(emitters);
+    }
+
+    public void updatePlaybackRate(double playbackRate) {
+        if (this.sound != null) {
+            this.sound.setPlaybackRate(playbackRate);
+        }
     }
 
     public List<AudioEmitter> getEmitters() {
@@ -86,5 +92,9 @@ public final class ClientAudioSource {
 
     public String getMediaLocation() {
         return this.playbackState.mediaLocation();
+    }
+
+    public AudioPlaybackState getPlaybackState() {
+        return this.playbackState;
     }
 }

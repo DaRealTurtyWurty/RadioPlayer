@@ -14,6 +14,9 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -39,27 +42,55 @@ public final class FfmpegAudioStream implements AudioStream {
     }
 
     public static AudioStream open(String mediaLocation) throws IOException {
+        return open(AudioPlaybackState.streaming(mediaLocation, true));
+    }
+
+    public static AudioStream open(AudioPlaybackState playbackState) throws IOException {
+        String mediaLocation = playbackState.mediaLocation();
         Path ffmpeg = FfmpegNatives.requireFfmpeg(Minecraft.getInstance().gameDirectory.toPath());
         int sampleRate = detectSampleRate(mediaLocation);
-        Process process = new ProcessBuilder(
+        List<String> command = new ArrayList<>();
+        command.addAll(List.of(
                 ffmpeg.toString(),
                 "-nostdin",
                 "-hide_banner",
                 "-loglevel", "error",
-                "-rw_timeout", "5000000",
-                "-i", mediaLocation,
+                "-rw_timeout", "5000000"
+        ));
+
+        if (playbackState.looping()) {
+            command.add("-stream_loop");
+            command.add("-1");
+        }
+
+        if (playbackState.startPositionSeconds() > 0.0) {
+            command.add("-ss");
+            command.add(String.format(Locale.ROOT, "%.3f", playbackState.startPositionSeconds()));
+        }
+
+        command.add("-i");
+        command.add(mediaLocation);
+        command.addAll(List.of(
                 "-map", "0:a:0",
                 "-vn",
                 "-ac", "1",
                 "-ar", Integer.toString(sampleRate),
                 "-f", "s16le",
-                "pipe:1")
+                "pipe:1"
+        ));
+
+        Process process = new ProcessBuilder(command)
                 .redirectError(ProcessBuilder.Redirect.DISCARD)
                 .start();
 
         try {
             var stream = new FfmpegAudioStream(process, sampleRate, mediaLocation);
-            MediaBox.LOGGER.info("FFmpeg is decoding audio stream at {} Hz: {}", sampleRate, mediaLocation);
+            MediaBox.LOGGER.info(
+                    "FFmpeg is decoding audio at {} Hz from {} seconds: {}",
+                    sampleRate,
+                    String.format(Locale.ROOT, "%.3f", playbackState.startPositionSeconds()),
+                    mediaLocation
+            );
             return stream;
         } catch (IOException | RuntimeException exception) {
             process.destroyForcibly();

@@ -31,6 +31,8 @@ public final class ClientVideoSession implements AutoCloseable {
     private double pendingInitialPositionSeconds;
     private long pendingDecoderStartedNanos;
     private double pendingPlaybackRate;
+    private boolean pendingDiscontinuity;
+    private long discontinuityRevision;
 
     private boolean receivedFrame;
     private long firstFrameNanos = -1L;
@@ -111,11 +113,23 @@ public final class ClientVideoSession implements AutoCloseable {
         return this.playbackRate;
     }
 
+    public String mediaLocation() {
+        return this.mediaLocation;
+    }
+
+    public long discontinuityRevision() {
+        return this.discontinuityRevision;
+    }
+
     public boolean isResynchronizing() {
         return this.pendingDecoder != null;
     }
 
-    public void beginResync(double startPositionSeconds, double playbackRate) throws IOException {
+    public void beginResync(
+            double startPositionSeconds,
+            double playbackRate,
+            boolean discontinuity
+    ) throws IOException {
         if (this.pendingDecoder != null) {
             this.pendingDecoder.close();
             this.pendingDecoder = null;
@@ -135,6 +149,7 @@ public final class ClientVideoSession implements AutoCloseable {
         this.pendingInitialPositionSeconds = startPositionSeconds;
         this.pendingDecoderStartedNanos = startedNanos;
         this.pendingPlaybackRate = playbackRate;
+        this.pendingDiscontinuity = discontinuity;
         this.pendingDecoder = replacement;
     }
 
@@ -148,6 +163,10 @@ public final class ClientVideoSession implements AutoCloseable {
                 this.initialPositionSeconds = this.pendingInitialPositionSeconds;
                 this.decoderStartedNanos = this.pendingDecoderStartedNanos;
                 this.playbackRate = this.pendingPlaybackRate;
+                if (this.pendingDiscontinuity) {
+                    this.discontinuityRevision++;
+                }
+                this.pendingDiscontinuity = false;
                 this.firstFrameNanos = System.nanoTime();
 
                 uploadFrame(pendingFrame);

@@ -2,6 +2,7 @@ package dev.turtywurty.mediabox.sound;
 
 import dev.turtywurty.mediabox.block.SpeakerBlock;
 import dev.turtywurty.mediabox.block.SpeakerBlockEntity;
+import dev.turtywurty.mediabox.client.video.ClientVideoManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction8;
@@ -14,6 +15,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
 
 public final class ClientAudioManager {
     private static final Set<BlockPos> KNOWN_SOURCES = new HashSet<>();
@@ -41,22 +43,41 @@ public final class ClientAudioManager {
         }
 
         SPEAKER_EMITTERS_BY_SOURCE.clear();
+        BUILT_IN_EMITTERS.clear();
+        Map<BlockPos, SourceSnapshot> sourcesByPos = new HashMap<>();
 
         KNOWN_SOURCES.removeIf(pos -> {
             BlockEntity blockEntity = minecraft.level.getBlockEntity(pos);
             if (!(blockEntity instanceof AudioSourceProvider provider)) {
-                unregisterSource(pos, minecraft);
                 return true;
             }
 
             BlockPos sourcePos = provider.getAudioSourcePos().immutable();
-            BUILT_IN_EMITTERS.put(sourcePos, List.copyOf(provider.getBuiltInAudioEmitters()));
+            SourceSnapshot candidate = new SourceSnapshot(
+                    provider,
+                    provider.getAudioPlaybackState(),
+                    List.copyOf(provider.getBuiltInAudioEmitters())
+            );
+            sourcesByPos.merge(sourcePos, candidate, ClientAudioManager::preferPlayableSource);
+            return false;
+        });
 
-            AudioPlaybackState playbackState = provider.getAudioPlaybackState();
+        for (Map.Entry<BlockPos, SourceSnapshot> entry : sourcesByPos.entrySet()) {
+            BlockPos sourcePos = entry.getKey();
+            SourceSnapshot snapshot = entry.getValue();
+            BUILT_IN_EMITTERS.put(sourcePos, snapshot.emitters());
+
+            Optional<AudioPlaybackState> resolvedState = resolvePlaybackState(snapshot.playbackState());
+            if (resolvedState.isEmpty()) {
+                stopPlayback(sourcePos, minecraft);
+                continue;
+            }
+
+            AudioPlaybackState playbackState = resolvedState.get();
             ClientAudioSource active = ACTIVE_SOURCES.get(sourcePos);
             if (!playbackState.isPlayable()) {
                 stopPlayback(sourcePos, minecraft);
-                return false;
+                continue;
             }
 
             if (active == null || !active.isFor(playbackState) || active.shouldRestart(minecraft)) {
@@ -65,11 +86,12 @@ public final class ClientAudioManager {
                 var source = new ClientAudioSource(sourcePos, playbackState);
                 ACTIVE_SOURCES.put(sourcePos, source);
                 source.start(minecraft);
+            } else {
+                active.updatePlaybackRate(playbackState.playbackRate());
             }
 
-            updateLoadingStatic(sourcePos, provider.playsLoadingStatic(), minecraft);
-            return false;
-        });
+            updateLoadingStatic(sourcePos, snapshot.provider().playsLoadingStatic(), minecraft);
+        }
 
         KNOWN_SPEAKERS.removeIf(pos -> {
             BlockEntity blockEntity = minecraft.level.getBlockEntity(pos);
@@ -81,7 +103,7 @@ public final class ClientAudioManager {
             AudioSourceProvider sourceProvider = speaker.findAudioSource();
             if (sourceProvider != null) {
                 BlockPos sourcePos = sourceProvider.getAudioSourcePos().immutable();
-                if (KNOWN_SOURCES.contains(sourcePos)) {
+                if (sourcesByPos.containsKey(sourcePos)) {
                     SpeakerType speakerType = speaker.getBlockState().getBlock() instanceof SpeakerBlock speakerBlock
                             ? speakerBlock.getSpeakerType()
                             : SpeakerType.FULL_RANGE;
@@ -102,7 +124,29 @@ public final class ClientAudioManager {
         });
 
         updateAudioSources(minecraft);
-        stopOrphanedAudio(minecraft);
+        stopOrphanedAudio(minecraft, sourcesByPos.keySet());
+    }
+
+    private static SourceSnapshot preferPlayableSource(SourceSnapshot first, SourceSnapshot second) {
+        return !first.playbackState().isPlayable() && second.playbackState().isPlayable()
+                ? second
+                : first;
+    }
+
+    private static Optional<AudioPlaybackState> resolvePlaybackState(AudioPlaybackState playbackState) {
+        if (!playbackState.isPlayable())
+            return Optional.of(playbackState);
+
+        if (playbackState.synchronizedVideoSessionId() == null)
+            return Optional.of(playbackState);
+
+        return ClientVideoManager.getAudioClock(playbackState.synchronizedVideoSessionId())
+                .map(clock -> playbackState.atRuntimePosition(
+                        clock.mediaLocation(),
+                        clock.positionSeconds(),
+                        clock.playbackRate(),
+                        clock.discontinuityRevision()
+                ));
     }
 
     private static void updateLoadingStatic(BlockPos pos, boolean enabled, Minecraft minecraft) {
@@ -167,8 +211,7 @@ public final class ClientAudioManager {
         SPEAKER_EMITTERS_BY_SOURCE.clear();
     }
 
-    private static void stopOrphanedAudio(Minecraft minecraft) {
-        Set<BlockPos> knownSources = Set.copyOf(KNOWN_SOURCES);
+    private static void stopOrphanedAudio(Minecraft minecraft, Set<BlockPos> knownSources) {
         for (BlockPos pos : Set.copyOf(ACTIVE_SOURCES.keySet())) {
             if (!knownSources.contains(pos)) {
                 unregisterSource(pos, minecraft);
@@ -192,5 +235,12 @@ public final class ClientAudioManager {
             source.updateListener(minecraft.player);
             source.updateEmitters(emitters);
         }
+    }
+
+    private record SourceSnapshot(
+            AudioSourceProvider provider,
+            AudioPlaybackState playbackState,
+            List<AudioEmitter> emitters
+    ) {
     }
 }

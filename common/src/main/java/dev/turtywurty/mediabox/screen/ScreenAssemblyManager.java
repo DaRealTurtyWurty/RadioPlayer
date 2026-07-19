@@ -3,6 +3,7 @@ package dev.turtywurty.mediabox.screen;
 import dev.turtywurty.mediabox.block.FlatScreenBlock;
 import dev.turtywurty.mediabox.block.entity.FlatScreenBlockEntity;
 import dev.turtywurty.mediabox.video.ScreenPlaybackSync;
+import dev.turtywurty.mediabox.video.ScreenPlaybackSavedData;
 import dev.turtywurty.mediabox.video.VideoSessionState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -108,9 +109,11 @@ public final class ScreenAssemblyManager {
                     component.members().size(),
                     component.rectangular()
             );
-            VideoSessionState input = previous == null || previous.state() == null
-                    ? null
-                    : previous.state().input();
+            VideoSessionState input = ScreenPlaybackSavedData.get(level).get(id)
+                    .map(assignment -> assignment.session())
+                    .orElseGet(() -> previous == null || previous.state() == null
+                            ? null
+                            : previous.state().input());
             applyAssembly(level, component, assembly, input);
             rebuiltAssemblies.add(assembly);
         }

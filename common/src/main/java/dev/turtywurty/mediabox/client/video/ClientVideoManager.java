@@ -42,6 +42,23 @@ public final class ClientVideoManager {
         return Optional.ofNullable(SESSIONS.get(id));
     }
 
+    public static Optional<AudioClock> getAudioClock(UUID id) {
+        ClientVideoSession session = SESSIONS.get(id);
+        if (session == null || !session.isReady())
+            return Optional.empty();
+
+        OptionalDouble position = session.playbackPositionSeconds();
+        if (position.isEmpty())
+            return Optional.empty();
+
+        return Optional.of(new AudioClock(
+                session.mediaLocation(),
+                position.getAsDouble(),
+                session.playbackRate(),
+                session.discontinuityRevision()
+        ));
+    }
+
     public static void remove(UUID id) {
         STARTING_SESSIONS.remove(id);
         LAST_SYNC_CHECK_TICKS.remove(id);
@@ -263,7 +280,7 @@ public final class ClientVideoManager {
 
         LAST_RESYNC_TICKS.put(state.sessionId(), currentTick);
         try {
-            session.beginResync(correctedPosition, targetRate);
+            session.beginResync(correctedPosition, targetRate, hardSeek);
         } catch (Exception exception) {
             MediaBox.LOGGER.error(
                     "Failed to resynchronize video session {}",
@@ -342,5 +359,13 @@ public final class ClientVideoManager {
                 yield null;
             }
         };
+    }
+
+    public record AudioClock(
+            String mediaLocation,
+            double positionSeconds,
+            double playbackRate,
+            long discontinuityRevision
+    ) {
     }
 }

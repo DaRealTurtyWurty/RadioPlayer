@@ -29,4 +29,14 @@ public final class AudioStreamDecoders {
 
         return FfmpegAudioStream.open(mediaLocation);
     }
+
+    public static AudioStream open(AudioPlaybackState playbackState) throws IOException {
+        if (playbackState.startPositionSeconds() == 0.0
+                && !playbackState.looping()
+                && playbackState.synchronizedVideoSessionId() == null) {
+            return open(playbackState.mediaLocation());
+        }
+
+        return FfmpegAudioStream.open(playbackState);
+    }
 }
