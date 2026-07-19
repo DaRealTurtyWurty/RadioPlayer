@@ -5,6 +5,7 @@ import dev.turtywurty.mediabox.cable.*;
 import dev.turtywurty.mediabox.client.cable.ClientCableState;
 import dev.turtywurty.mediabox.client.cable.ClientConcealedCableRouteCache;
 import dev.turtywurty.mediabox.client.cable.ClientConcealedCableSegment;
+import dev.turtywurty.mediabox.client.cable.ClientVisibleCablePreview;
 import dev.turtywurty.mediabox.item.ModItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -19,7 +20,10 @@ public final class CableWorldRenderer {
     private static final double VISIBLE_RENDER_DISTANCE_SQUARED = 160.0 * 160.0;
     private static final double CONCEALED_RENDER_DISTANCE_SQUARED = 96.0 * 96.0;
     private static final int CONCEALED_COLOR = 0xE6FF9D24;
+    private static final int VALID_PREVIEW_COLOR = 0xE640FF63;
+    private static final int INVALID_PREVIEW_COLOR = 0xE6FF4040;
     private static final float CONCEALED_LINE_WIDTH = 3.0F;
+    private static final float PREVIEW_LINE_WIDTH = 4.0F;
 
     private CableWorldRenderer() {
     }
@@ -40,12 +44,44 @@ public final class CableWorldRenderer {
         }
 
         if (isCableItemHeld(minecraft)) {
+            ClientVisibleCablePreview.get(minecraft).ifPresent(preview ->
+                    submitPreview(cameraPos, poseStack, submitNodeCollector, preview));
             for (var run : snapshot.concealedRuns()) {
                 for (ClientConcealedCableSegment segment : ClientConcealedCableRouteCache.route(level, run)) {
                     submitConcealedSegment(cameraPos, poseStack, submitNodeCollector, segment);
                 }
             }
         }
+    }
+
+    private static void submitPreview(
+            Vec3 cameraPos,
+            PoseStack poseStack,
+            SubmitNodeCollector submitNodeCollector,
+            ClientVisibleCablePreview.Preview preview) {
+        int color = preview.valid() ? VALID_PREVIEW_COLOR : INVALID_PREVIEW_COLOR;
+        poseStack.pushPose();
+        poseStack.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+        submitNodeCollector.submitCustomGeometry(
+                poseStack,
+                CableRenderTypes.previewLines(),
+                (pose, buffer) -> {
+                    var points = preview.route().points();
+                    for (int index = 1; index < points.size(); index++) {
+                        Vec3 first = points.get(index - 1);
+                        Vec3 second = points.get(index);
+                        Vec3 normal = second.subtract(first).normalize();
+                        buffer.addVertex(pose, (float) first.x, (float) first.y, (float) first.z)
+                                .setColor(color)
+                                .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z)
+                                .setLineWidth(PREVIEW_LINE_WIDTH);
+                        buffer.addVertex(pose, (float) second.x, (float) second.y, (float) second.z)
+                                .setColor(color)
+                                .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z)
+                                .setLineWidth(PREVIEW_LINE_WIDTH);
+                    }
+                });
+        poseStack.popPose();
     }
 
     private static void submitVisibleCable(

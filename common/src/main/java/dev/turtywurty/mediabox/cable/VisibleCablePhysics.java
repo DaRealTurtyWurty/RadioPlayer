@@ -42,26 +42,25 @@ public final class VisibleCablePhysics {
             }
 
             double capacity = CableConstants.capacityForItems(connection.cableItems());
-            Optional<VisibleCableRoute> tautRoute = VisibleCableRoutePlanner.findTautRoute(
+            Optional<VisibleCableRoute> route = VisibleCableRoutePlanner.findSettledRoute(
                     level,
                     first.get(),
                     second.get(),
                     capacity);
-            if (tautRoute.isEmpty()) {
+            if (route.isEmpty()) {
                 data.removeVisibleCable(connection.id());
                 dropCableItems(level, routeMidpoint(connection.route()), connection.cableItems());
                 changed = true;
                 continue;
             }
 
-            VisibleCableRoute route = VisibleCableRoutePlanner.addCollisionSafeSag(level, tautRoute.get(), capacity);
             VisibleCableConnection updated = new VisibleCableConnection(
                     connection.id(),
                     connection.first(),
                     connection.second(),
                     connection.signalType(),
                     connection.cableItems(),
-                    route);
+                    route.get());
             if (!updated.equals(connection)) {
                 data.updateVisibleCable(updated);
                 changed = true;
@@ -106,7 +105,7 @@ public final class VisibleCablePhysics {
                     Math.max(first.x, second.x),
                     Math.max(first.y, second.y),
                     Math.max(first.z, second.z))
-                    .inflate(VisibleCableRoutePlanner.CABLE_RADIUS + 0.01);
+                    .inflate(VisibleCableRoutePlanner.INVALIDATION_MARGIN);
             if (segmentBounds.intersects(changedBlock))
                 return true;
         }

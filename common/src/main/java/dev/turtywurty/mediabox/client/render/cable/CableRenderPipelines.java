@@ -7,6 +7,10 @@ import dev.turtywurty.mediabox.MediaBox;
 import dev.turtywurty.mediabox.mixin.RenderPipelinesAccessor;
 
 public final class CableRenderPipelines {
+    public static final RenderPipeline PREVIEW_LINES = RenderPipeline.builder(
+                    RenderPipelinesAccessor.mediabox$getLinesSnippet())
+            .withLocation(MediaBox.id("pipeline/cable_preview_lines"))
+            .build();
     public static final RenderPipeline XRAY_LINES = RenderPipeline.builder(
                     RenderPipelinesAccessor.mediabox$getLinesSnippet())
             .withLocation(MediaBox.id("pipeline/cable_xray_lines"))

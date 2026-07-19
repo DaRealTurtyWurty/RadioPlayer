@@ -12,7 +12,6 @@ import dev.turtywurty.mediabox.cable.PortDirection;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.ResolvedMediaPort;
 import dev.turtywurty.mediabox.cable.VisibleCableConnection;
-import dev.turtywurty.mediabox.cable.VisibleCableRoute;
 import dev.turtywurty.mediabox.cable.VisibleCableRoutePlanner;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCableInstaller;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCablePortProvider;
@@ -107,33 +106,28 @@ public class AudioCableItem extends Item {
                         requiredItems);
             } else {
                 validateVisibleConnection(serverLevel, manager, firstPort.get(), clicked);
-                double directLength = VisibleCableRoutePlanner.portPosition(serverLevel, firstPort.get())
-                        .distanceTo(VisibleCableRoutePlanner.portPosition(serverLevel, clicked));
-                double searchCapacity = consumesItems
-                        ? CableConstants.capacityForItems(stack.getCount())
-                        : directLength + 80.0;
-                Optional<VisibleCableRoute> tautRoute = VisibleCableRoutePlanner.findTautRoute(
-                        serverLevel,
-                        firstPort.get(),
-                        clicked,
-                        searchCapacity);
-                if (tautRoute.isEmpty())
+                double directLength = VisibleCableRoutePlanner.portPosition(firstPort.get())
+                        .distanceTo(VisibleCableRoutePlanner.portPosition(clicked));
+                int minimumItems = CableConstants.itemsForLength(directLength);
+                int maximumItems = consumesItems ? stack.getCount() : minimumItems + 16;
+                Optional<VisibleCableRoutePlanner.PurchasedRoute> purchasedRoute =
+                        VisibleCableRoutePlanner.findPurchasableRoute(
+                                serverLevel,
+                                firstPort.get(),
+                                clicked,
+                                maximumItems);
+                if (purchasedRoute.isEmpty())
                     throw new IllegalArgumentException("No collision-free cable route fits the available cable");
 
-                requiredItems = CableConstants.itemsForLength(tautRoute.get().length());
+                requiredItems = purchasedRoute.get().cableItems();
                 requireCableItems(stack, requiredItems, consumesItems);
-                double purchasedCapacity = CableConstants.capacityForItems(requiredItems);
-                VisibleCableRoute route = VisibleCableRoutePlanner.addCollisionSafeSag(
-                        serverLevel,
-                        tautRoute.get(),
-                        purchasedCapacity);
                 savedData.addVisibleCable(new VisibleCableConnection(
                         UUID.randomUUID(),
                         firstEndpoint,
                         clicked.endpoint(),
                         MediaSignalType.AUDIO,
                         requiredItems,
-                        route));
+                        purchasedRoute.get().route()));
                 CableSync.broadcastSnapshot(serverLevel);
             }
 

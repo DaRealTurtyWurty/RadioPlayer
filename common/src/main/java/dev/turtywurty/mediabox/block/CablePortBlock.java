@@ -49,10 +49,10 @@ public class CablePortBlock extends Block implements EntityBlock, SimpleWaterlog
                 .setValue(WATERLOGGED, false));
     }
 
-    public static Vec3 portPosition(BlockPos pos, BlockState state) {
+    public static Vec3 attachmentPoint(BlockState state) {
         Direction towardsWall = state.getValue(FACING).getOpposite();
         double offset = 0.5 - PORT_DEPTH;
-        return Vec3.atCenterOf(pos).add(
+        return new Vec3(0.5, 0.5, 0.5).add(
                 towardsWall.getStepX() * offset,
                 towardsWall.getStepY() * offset,
                 towardsWall.getStepZ() * offset);

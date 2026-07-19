@@ -2,11 +2,14 @@ package dev.turtywurty.mediabox.block;
 
 import dev.turtywurty.mediabox.MediaBox;
 import dev.turtywurty.mediabox.cable.MediaPort;
+import dev.turtywurty.mediabox.cable.MediaPortGeometry;
 import dev.turtywurty.mediabox.cable.MediaPortProvider;
 import dev.turtywurty.mediabox.cable.MediaSignalType;
 import dev.turtywurty.mediabox.cable.PortDirection;
 import dev.turtywurty.mediabox.cable.CableRouting;
 import dev.turtywurty.mediabox.sound.AudioSourceProvider;
+import dev.turtywurty.mediabox.sound.SpeakerType;
+import net.minecraft.core.Direction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
@@ -21,6 +24,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.Vec3;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -60,11 +64,23 @@ public class SpeakerBlockEntity extends BlockEntity implements MediaPortProvider
 
     @Override
     public List<MediaPort> getMediaPorts() {
+        Direction modelFacing = getBlockState().getValue(SpeakerBlock.FACING).nearestCardinal();
+        SpeakerType speakerType = ((SpeakerBlock) getBlockState().getBlock()).getSpeakerType();
         return List.of(new MediaPort(
                 AUDIO_INPUT_PORT_ID,
-                getBlockState().getValue(SpeakerBlock.FACING).nearestCardinal().getOpposite(),
+                modelFacing.getOpposite(),
+                MediaPortGeometry.rotateFromNorth(speakerAttachmentPoint(speakerType), modelFacing),
                 PortDirection.INPUT,
                 Set.of(MediaSignalType.AUDIO)));
+    }
+
+    private static Vec3 speakerAttachmentPoint(SpeakerType speakerType) {
+        return switch (speakerType) {
+            case BOOKSHELF -> MediaPortGeometry.modelPoint(9.5, 6.5, 12.0);
+            case FLOOR_STANDING -> MediaPortGeometry.modelPoint(9.5, 5.5, 12.0);
+            case SUBWOOFER, BASS_REFLEX, HORN -> MediaPortGeometry.modelPoint(10.5, 5.5, 16.0);
+            case FULL_RANGE, WOOFER, MID_RANGE, TWEETER -> MediaPortGeometry.modelPoint(10.5, 5.5, 14.0);
+        };
     }
 
     @Override

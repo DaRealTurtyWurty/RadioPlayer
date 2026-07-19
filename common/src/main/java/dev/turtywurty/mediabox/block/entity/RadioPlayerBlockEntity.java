@@ -6,6 +6,7 @@ import dev.turtywurty.mediabox.block.ModBlockEntities;
 import dev.turtywurty.mediabox.block.RadioPlayerBlock;
 import dev.turtywurty.mediabox.MediaBox;
 import dev.turtywurty.mediabox.cable.MediaPort;
+import dev.turtywurty.mediabox.cable.MediaPortGeometry;
 import dev.turtywurty.mediabox.cable.MediaPortProvider;
 import dev.turtywurty.mediabox.cable.MediaSignalType;
 import dev.turtywurty.mediabox.cable.PortDirection;
@@ -14,6 +15,7 @@ import dev.turtywurty.mediabox.sound.AudioPlaybackState;
 import dev.turtywurty.mediabox.sound.AudioSourceProvider;
 import dev.turtywurty.mediabox.sound.SpeakerType;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.Identifier;
@@ -176,9 +178,13 @@ public class RadioPlayerBlockEntity extends BlockEntity implements AudioSourcePr
 
     @Override
     public List<MediaPort> getMediaPorts() {
+        Direction modelFacing = getBlockState().getValue(RadioPlayerBlock.FACING).nearestCardinal();
         return List.of(new MediaPort(
                 AUDIO_OUTPUT_PORT_ID,
-                getBlockState().getValue(RadioPlayerBlock.FACING).nearestCardinal().getOpposite(),
+                modelFacing.getOpposite(),
+                MediaPortGeometry.rotateFromNorth(
+                        MediaPortGeometry.modelPoint(10.5, 1.5, 11.0),
+                        modelFacing),
                 PortDirection.OUTPUT,
                 Set.of(MediaSignalType.AUDIO)));
     }
