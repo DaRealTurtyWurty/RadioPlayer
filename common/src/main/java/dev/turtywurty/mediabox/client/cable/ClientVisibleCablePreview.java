@@ -88,25 +88,30 @@ public final class ClientVisibleCablePreview {
         boolean affordable = creative || availableItems >= route.cableItems();
         boolean supported = first.port().supports(signalType) && second.port().supports(signalType);
         boolean compatible = CableConnectionRules.directionsAreCompatible(first.port(), second.port());
+        boolean duplicate = ClientCableState.hasConnectionBetween(
+                first.endpoint(),
+                second.endpoint(),
+                signalType);
         boolean capacityAvailable = CableConnectionRules.hasCapacity(
                 first.port(),
                 ClientCableState.connectionCount(first.endpoint()))
                 && CableConnectionRules.hasCapacity(
                 second.port(),
                 ClientCableState.connectionCount(second.endpoint()));
-        boolean clear = supported && compatible && capacityAvailable && VisibleCableCollision.isClear(
+        boolean clear = supported && compatible && !duplicate && capacityAvailable && VisibleCableCollision.isClear(
                 level,
                 route.route(),
                 first.endpoint().pos(),
                 second.endpoint().pos());
         return new Preview(
                 route.route(),
-                affordable && supported && compatible && capacityAvailable && clear,
+                affordable && supported && compatible && !duplicate && capacityAvailable && clear,
                 route.cableItems(),
                 supported && compatible && capacityAvailable && !clear,
                 !supported,
                 !compatible,
-                !capacityAvailable);
+                !capacityAvailable,
+                duplicate);
     }
 
     private static ItemStack heldCableStack(Minecraft minecraft) {
@@ -122,7 +127,10 @@ public final class ClientVisibleCablePreview {
     }
 
     private static void showStatus(Minecraft minecraft, Preview preview) {
-        if (preview.unsupported()) {
+        if (preview.duplicate()) {
+            minecraft.player.sendOverlayMessage(Component.literal(
+                    "Those ports already have that cable connection"));
+        } else if (preview.unsupported()) {
             minecraft.player.sendOverlayMessage(Component.literal("Those ports do not support this cable type"));
         } else if (preview.incompatible()) {
             minecraft.player.sendOverlayMessage(Component.literal("Those port directions are incompatible"));
@@ -147,7 +155,8 @@ public final class ClientVisibleCablePreview {
             boolean blocked,
             boolean unsupported,
             boolean incompatible,
-            boolean full) {
+            boolean full,
+            boolean duplicate) {
     }
 
     private record PreviewKey(

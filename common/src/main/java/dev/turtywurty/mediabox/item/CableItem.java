@@ -4,6 +4,7 @@ import dev.turtywurty.mediabox.cable.CableConnectionRules;
 import dev.turtywurty.mediabox.cable.CableConstants;
 import dev.turtywurty.mediabox.cable.CableItemData;
 import dev.turtywurty.mediabox.cable.CableManager;
+import dev.turtywurty.mediabox.cable.CableNetwork;
 import dev.turtywurty.mediabox.cable.CableSavedData;
 import dev.turtywurty.mediabox.cable.CableSync;
 import dev.turtywurty.mediabox.cable.MediaPortLookup;
@@ -102,6 +103,9 @@ public class CableItem extends Item {
 
         try {
             CableConnectionRules.validateDirections(firstPort.get().port(), clicked.port());
+            if (manager.hasConnectionBetween(firstEndpoint, clicked.endpoint(), this.signalType))
+                throw new IllegalArgumentException("Those ports already have a direct "
+                        + signalName() + " connection");
             CableConnectionRules.validateCapacity(
                     firstPort.get().port(),
                     manager.connectionCount(firstPort.get().endpoint()));
@@ -144,6 +148,7 @@ public class CableItem extends Item {
                         firstEndpoint,
                         clicked.endpoint(),
                         this.signalType,
+                        sourceEndpoint(firstPort.get(), clicked),
                         requiredItems));
                 CableSync.broadcastSnapshot(serverLevel);
             }
@@ -199,19 +204,37 @@ public class CableItem extends Item {
         manager.networkAt(second.endpoint(), this.signalType)
                 .ifPresent(network -> prospectiveNetwork.addAll(network.ports()));
 
-        long outputCount = prospectiveNetwork.stream()
+        Set<PortEndpoint> outputEndpoints = new HashSet<>();
+        manager.networkAt(first.endpoint(), this.signalType)
+                .flatMap(CableNetwork::sourceEndpoint)
+                .ifPresent(outputEndpoints::add);
+        manager.networkAt(second.endpoint(), this.signalType)
+                .flatMap(CableNetwork::sourceEndpoint)
+                .ifPresent(outputEndpoints::add);
+        prospectiveNetwork.stream()
                 .map(endpoint -> MediaPortLookup.resolve(level, endpoint))
                 .flatMap(Optional::stream)
                 .filter(port -> port.port().supports(this.signalType))
                 .filter(port -> port.port().direction() == PortDirection.OUTPUT)
-                .count();
-        if (outputCount > 1)
+                .map(ResolvedMediaPort::endpoint)
+                .forEach(outputEndpoints::add);
+        if (outputEndpoints.size() > 1)
             throw new IllegalArgumentException("A " + signalName() + " network can only contain one output");
     }
 
     private void validateSignalSupport(ResolvedMediaPort first, ResolvedMediaPort second) {
         if (!first.port().supports(this.signalType) || !second.port().supports(this.signalType))
             throw new IllegalArgumentException("Both ports must support " + signalName());
+    }
+
+    private static Optional<PortEndpoint> sourceEndpoint(
+            ResolvedMediaPort first,
+            ResolvedMediaPort second) {
+        if (first.port().direction() == PortDirection.OUTPUT)
+            return Optional.of(first.endpoint());
+        if (second.port().direction() == PortDirection.OUTPUT)
+            return Optional.of(second.endpoint());
+        return Optional.empty();
     }
 
     private static boolean isConcealedTerminal(ServerLevel level, ResolvedMediaPort port) {

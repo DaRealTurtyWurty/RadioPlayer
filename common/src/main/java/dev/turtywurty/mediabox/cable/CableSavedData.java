@@ -38,8 +38,18 @@ public final class CableSavedData extends SavedData {
     private CableSavedData(
             List<VisibleCableConnection> visibleConnections,
             List<ConcealedCableRun> concealedRuns) {
-        concealedRuns.forEach(this.manager::addConcealedCableRun);
-        visibleConnections.forEach(this.manager::addVisibleCable);
+        for (ConcealedCableRun run : concealedRuns) {
+            List<PortEndpoint> terminals = run.terminals().stream().toList();
+            if (!this.manager.hasConnectionBetween(terminals.get(0), terminals.get(1), run.signalType()))
+                this.manager.addConcealedCableRun(run);
+        }
+        for (VisibleCableConnection connection : visibleConnections) {
+            if (!this.manager.hasConnectionBetween(
+                    connection.first(),
+                    connection.second(),
+                    connection.signalType()))
+                this.manager.addVisibleCable(connection);
+        }
     }
 
     public static CableSavedData get(ServerLevel level) {

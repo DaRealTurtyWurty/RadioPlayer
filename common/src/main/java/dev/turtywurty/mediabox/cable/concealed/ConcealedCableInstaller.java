@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 import java.util.Objects;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,6 +42,11 @@ public final class ConcealedCableInstaller {
 
         ResolvedMediaPort firstPort = validateTerminal(level, firstTerminal, signalType);
         ResolvedMediaPort secondPort = validateTerminal(level, secondTerminal, signalType);
+        if (PortEndpoint.CANONICAL_ORDER.compare(firstPort.endpoint(), secondPort.endpoint()) > 0) {
+            ResolvedMediaPort previousFirst = firstPort;
+            firstPort = secondPort;
+            secondPort = previousFirst;
+        }
         BlockPos firstInsideWall = insideWallPosition(firstPort);
         BlockPos secondInsideWall = insideWallPosition(secondPort);
         int minimumLength = ConcealedCableRouting.manhattanDistance(firstInsideWall, secondInsideWall);
@@ -58,6 +64,7 @@ public final class ConcealedCableInstaller {
                 UUID.randomUUID(),
                 signalType,
                 Set.of(firstTerminal, secondTerminal),
+                Optional.empty(),
                 path,
                 cableItems);
         CableSavedData.get(level).addConcealedCableRun(run);

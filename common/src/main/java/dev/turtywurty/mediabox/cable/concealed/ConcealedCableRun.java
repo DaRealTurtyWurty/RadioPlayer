@@ -11,6 +11,7 @@ import net.minecraft.core.UUIDUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -21,6 +22,7 @@ public record ConcealedCableRun(
         UUID id,
         MediaSignalType signalType,
         Set<PortEndpoint> terminals,
+        Optional<PortEndpoint> sourceEndpoint,
         List<BlockPos> path,
         int cableItems
 ) {
@@ -30,6 +32,8 @@ public record ConcealedCableRun(
             PortEndpoint.CODEC.listOf().fieldOf("terminals")
                     .xmap(Set::copyOf, ArrayList::new)
                     .forGetter(ConcealedCableRun::terminals),
+            PortEndpoint.CODEC.optionalFieldOf("source_endpoint")
+                    .forGetter(ConcealedCableRun::sourceEndpoint),
             BlockPos.CODEC.listOf().optionalFieldOf("path", List.of()).forGetter(ConcealedCableRun::path),
             Codec.INT.fieldOf("cable_items").forGetter(ConcealedCableRun::cableItems)
     ).apply(instance, ConcealedCableRun::new));
@@ -38,12 +42,15 @@ public record ConcealedCableRun(
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(signalType, "signalType");
         terminals = Set.copyOf(Objects.requireNonNull(terminals, "terminals"));
+        sourceEndpoint = Objects.requireNonNull(sourceEndpoint, "sourceEndpoint");
         path = Objects.requireNonNull(path, "path").stream()
                 .map(position -> Objects.requireNonNull(position, "path position").immutable())
                 .toList();
 
         if (terminals.size() != 2)
             throw new IllegalArgumentException("A concealed cable run needs exactly two terminals");
+        if (sourceEndpoint.isPresent() && !terminals.contains(sourceEndpoint.get()))
+            throw new IllegalArgumentException("A concealed cable source must be one of its terminals");
         if (cableItems < 1)
             throw new IllegalArgumentException("A concealed cable run needs at least one cable item");
         if (path.size() - 1 > CableConstants.capacityForItems(cableItems))

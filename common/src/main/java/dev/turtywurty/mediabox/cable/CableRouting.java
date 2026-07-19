@@ -29,6 +29,19 @@ public final class CableRouting {
             return;
         }
 
+        if (network.sourceEndpoint().isPresent()) {
+            PortEndpoint endpoint = network.sourceEndpoint().get();
+            Optional<ResolvedMediaPort> resolved = MediaPortLookup.resolve(level, endpoint);
+            BlockEntity blockEntity = level.getBlockEntity(endpoint.pos());
+            speaker.setLinkedSourcePos(resolved.isPresent()
+                    && resolved.get().port().supports(MediaSignalType.AUDIO)
+                    && blockEntity instanceof AudioSourceProvider
+                    ? endpoint.pos()
+                    : null);
+            return;
+        }
+
+        // Compatibility fallback for cable records saved before source endpoints were persisted.
         BlockPos sourcePos = null;
         for (PortEndpoint endpoint : network.ports()) {
             Optional<ResolvedMediaPort> resolved = MediaPortLookup.resolve(level, endpoint);

@@ -32,6 +32,14 @@ public final class CableManager {
             throw new IllegalArgumentException("A visible cable with ID " + cable.id() + " already exists");
         }
 
+        validateNoDuplicateConnection(cable.first(), cable.second(), cable.signalType());
+
+        validateSourceMerge(
+                cable.signalType(),
+                cable.sourceEndpoint(),
+                cable.first(),
+                cable.second());
+
         visibleConnections.put(cable.id(), cable);
 
         connectionsByEndpoint
@@ -57,6 +65,12 @@ public final class CableManager {
         }
 
         validateConcealedRun(run);
+        List<PortEndpoint> terminals = run.terminals().stream().toList();
+        validateNoDuplicateConnection(terminals.get(0), terminals.get(1), run.signalType());
+        validateSourceMerge(
+                run.signalType(),
+                run.sourceEndpoint(),
+                run.terminals().toArray(PortEndpoint[]::new));
 
         this.concealedRuns.put(run.id(), run);
         for (PortEndpoint terminal : run.terminals()) {
@@ -77,7 +91,8 @@ public final class CableManager {
             return;
         if (!previous.first().equals(cable.first())
                 || !previous.second().equals(cable.second())
-                || previous.signalType() != cable.signalType())
+                || previous.signalType() != cable.signalType()
+                || !previous.sourceEndpoint().equals(cable.sourceEndpoint()))
             throw new IllegalArgumentException("A route update cannot change visible cable topology");
 
         this.visibleConnections.put(cable.id(), cable);
@@ -95,18 +110,12 @@ public final class CableManager {
             return;
 
         validateConcealedRun(run);
-        for (PortEndpoint oldTerminal : previous.terminals()) {
-            removeConcealedTerminalIndex(oldTerminal, run.id());
-        }
+        if (!previous.terminals().equals(run.terminals())
+                || previous.signalType() != run.signalType()
+                || !previous.sourceEndpoint().equals(run.sourceEndpoint()))
+            throw new IllegalArgumentException("A route update cannot change concealed cable topology");
 
         this.concealedRuns.put(run.id(), run);
-        for (PortEndpoint terminal : run.terminals()) {
-            this.concealedRunsByTerminal
-                    .computeIfAbsent(terminal, ignored -> new HashSet<>())
-                    .add(run.id());
-        }
-
-        rebuildNetworks();
     }
 
     public Optional<VisibleCableConnection> removeVisibleCable(UUID cableId) {
@@ -180,6 +189,31 @@ public final class CableManager {
     public Set<UUID> connectionIdsAt(PortEndpoint endpoint) {
         Objects.requireNonNull(endpoint, "endpoint");
         return Set.copyOf(this.connectionsByEndpoint.getOrDefault(endpoint, Set.of()));
+    }
+
+    public boolean hasConnectionBetween(
+            PortEndpoint first,
+            PortEndpoint second,
+            MediaSignalType signalType) {
+        Objects.requireNonNull(first, "first");
+        Objects.requireNonNull(second, "second");
+        Objects.requireNonNull(signalType, "signalType");
+
+        for (UUID cableId : this.connectionsByEndpoint.getOrDefault(first, Set.of())) {
+            VisibleCableConnection cable = this.visibleConnections.get(cableId);
+            if (cable != null
+                    && cable.signalType() == signalType
+                    && connects(cable.first(), cable.second(), first, second))
+                return true;
+        }
+
+        for (UUID runId : this.concealedRunsByTerminal.getOrDefault(first, Set.of())) {
+            ConcealedCableRun run = this.concealedRuns.get(runId);
+            if (run != null && run.signalType() == signalType && run.terminals().contains(second))
+                return true;
+        }
+
+        return false;
     }
 
     public int connectionCount(PortEndpoint endpoint) {
@@ -271,6 +305,25 @@ public final class CableManager {
         }
     }
 
+    private void validateNoDuplicateConnection(
+            PortEndpoint first,
+            PortEndpoint second,
+            MediaSignalType signalType) {
+        if (hasConnectionBetween(first, second, signalType))
+            throw new IllegalArgumentException("Those ports already have a direct "
+                    + signalType.name().toLowerCase(Locale.ROOT)
+                    + " connection");
+    }
+
+    private static boolean connects(
+            PortEndpoint connectionFirst,
+            PortEndpoint connectionSecond,
+            PortEndpoint first,
+            PortEndpoint second) {
+        return connectionFirst.equals(first) && connectionSecond.equals(second)
+                || connectionFirst.equals(second) && connectionSecond.equals(first);
+    }
+
     private void removeEndpointIndex(PortEndpoint endpoint, UUID cableId) {
         Set<UUID> cableIds = this.connectionsByEndpoint.get(endpoint);
         if (cableIds == null)
@@ -309,7 +362,11 @@ public final class CableManager {
                 } while (!usedIds.add(networkId));
             }
 
-            CableNetwork network = new CableNetwork(networkId, component.ports(), component.signalType());
+            CableNetwork network = new CableNetwork(
+                    networkId,
+                    component.ports(),
+                    component.signalType(),
+                    component.sourceEndpoint());
             for (PortEndpoint port : component.ports()) {
                 this.networkByPortAndSignal.put(new PortSignalKey(port, component.signalType()), network);
             }
@@ -337,6 +394,7 @@ public final class CableManager {
                 continue;
 
             Set<PortEndpoint> ports = new LinkedHashSet<>();
+            Set<PortEndpoint> sourceEndpoints = new LinkedHashSet<>();
             ArrayDeque<PortEndpoint> pending = new ArrayDeque<>();
             pending.add(startingPort.endpoint());
 
@@ -346,6 +404,7 @@ public final class CableManager {
                     continue;
 
                 ports.add(endpoint);
+                sourceEndpoints.addAll(sourceEndpointsAt(endpoint, startingPort.signalType()));
                 for (PortEndpoint adjacent : adjacentPorts(endpoint, startingPort.signalType())) {
                     if (!visited.contains(new PortSignalKey(adjacent, startingPort.signalType()))) {
                         pending.addLast(adjacent);
@@ -353,7 +412,12 @@ public final class CableManager {
                 }
             }
 
-            components.add(new NetworkComponent(startingPort.signalType(), ports));
+            if (sourceEndpoints.size() > 1)
+                throw multipleOutputs(startingPort.signalType());
+            components.add(new NetworkComponent(
+                    startingPort.signalType(),
+                    ports,
+                    sourceEndpoints.stream().findFirst()));
         }
 
         return components;
@@ -381,6 +445,46 @@ public final class CableManager {
         }
 
         return adjacent;
+    }
+
+    private Set<PortEndpoint> sourceEndpointsAt(PortEndpoint endpoint, MediaSignalType signalType) {
+        Set<PortEndpoint> sources = new LinkedHashSet<>();
+
+        for (UUID cableId : this.connectionsByEndpoint.getOrDefault(endpoint, Set.of())) {
+            VisibleCableConnection cable = this.visibleConnections.get(cableId);
+            if (cable != null && cable.signalType() == signalType)
+                cable.sourceEndpoint().ifPresent(sources::add);
+        }
+
+        for (UUID runId : this.concealedRunsByTerminal.getOrDefault(endpoint, Set.of())) {
+            ConcealedCableRun run = this.concealedRuns.get(runId);
+            if (run != null && run.signalType() == signalType)
+                run.sourceEndpoint().ifPresent(sources::add);
+        }
+
+        return sources;
+    }
+
+    private void validateSourceMerge(
+            MediaSignalType signalType,
+            Optional<PortEndpoint> newSource,
+            PortEndpoint... endpoints) {
+        Set<PortEndpoint> sources = new LinkedHashSet<>();
+        newSource.ifPresent(sources::add);
+        for (PortEndpoint endpoint : endpoints) {
+            networkAt(endpoint, signalType)
+                    .flatMap(CableNetwork::sourceEndpoint)
+                    .ifPresent(sources::add);
+        }
+
+        if (sources.size() > 1)
+            throw multipleOutputs(signalType);
+    }
+
+    private static IllegalArgumentException multipleOutputs(MediaSignalType signalType) {
+        return new IllegalArgumentException("A "
+                + signalType.name().toLowerCase(Locale.ROOT)
+                + " network can only contain one output");
     }
 
     private static Map<Integer, UUID> matchReusableNetworkIds(
@@ -430,7 +534,10 @@ public final class CableManager {
         return matches;
     }
 
-    private record NetworkComponent(MediaSignalType signalType, Set<PortEndpoint> ports) {
+    private record NetworkComponent(
+            MediaSignalType signalType,
+            Set<PortEndpoint> ports,
+            Optional<PortEndpoint> sourceEndpoint) {
     }
 
     private record PortSignalKey(PortEndpoint endpoint, MediaSignalType signalType) {

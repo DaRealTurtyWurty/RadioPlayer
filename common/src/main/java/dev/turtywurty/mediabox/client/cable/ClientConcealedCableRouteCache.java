@@ -11,7 +11,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,10 +21,6 @@ import java.util.Set;
 import java.util.UUID;
 
 public final class ClientConcealedCableRouteCache {
-    private static final Comparator<PortEndpoint> ENDPOINT_ORDER = Comparator
-            .comparing((PortEndpoint endpoint) -> endpoint.dimension().identifier().toString())
-            .thenComparingLong(endpoint -> endpoint.pos().asLong())
-            .thenComparing(endpoint -> endpoint.portId().toString());
     private static final Map<UUID, CachedRoute> ROUTES = new HashMap<>();
     private static final Map<BlockPos, Set<UUID>> ROUTES_BY_BLOCK = new HashMap<>();
 
@@ -71,7 +66,7 @@ public final class ClientConcealedCableRouteCache {
     }
 
     private static Optional<CachedRoute> computeRoute(ClientLevel level, ConcealedCableRun run) {
-        List<PortEndpoint> endpoints = run.terminals().stream().sorted(ENDPOINT_ORDER).toList();
+        List<PortEndpoint> endpoints = run.terminals().stream().sorted(PortEndpoint.CANONICAL_ORDER).toList();
         if (endpoints.size() != 2)
             return Optional.empty();
 
@@ -91,6 +86,7 @@ public final class ClientConcealedCableRouteCache {
                             CableConstants.capacityForItems(run.cableItems()))
                     .orElse(List.of());
         }
+        path = orientPath(path, firstInsideWall, secondInsideWall).orElse(List.of());
         if (path.isEmpty() || path.stream().anyMatch(pos -> !ConcealedCableRouting.canRouteThrough(level, pos)))
             return Optional.empty();
 
@@ -99,6 +95,21 @@ public final class ClientConcealedCableRouteCache {
                 secondPort.get(),
                 path);
         return Optional.of(new CachedRoute(run, segments, Set.copyOf(path)));
+    }
+
+    private static Optional<List<BlockPos>> orientPath(
+            List<BlockPos> path,
+            BlockPos firstInsideWall,
+            BlockPos secondInsideWall) {
+        if (path.isEmpty())
+            return Optional.empty();
+        if (path.getFirst().equals(firstInsideWall) && path.getLast().equals(secondInsideWall))
+            return Optional.of(path);
+        if (!path.getFirst().equals(secondInsideWall) || !path.getLast().equals(firstInsideWall))
+            return Optional.empty();
+
+        List<BlockPos> reversed = new ArrayList<>(path.reversed());
+        return Optional.of(List.copyOf(reversed));
     }
 
     private static List<ClientConcealedCableSegment> buildSegments(

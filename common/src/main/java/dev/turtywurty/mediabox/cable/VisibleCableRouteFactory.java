@@ -27,6 +27,11 @@ public final class VisibleCableRouteFactory {
             ResolvedMediaPort firstPort,
             ResolvedMediaPort secondPort,
             int cableItems) {
+        if (PortEndpoint.CANONICAL_ORDER.compare(firstPort.endpoint(), secondPort.endpoint()) > 0) {
+            ResolvedMediaPort previousFirst = firstPort;
+            firstPort = secondPort;
+            secondPort = previousFirst;
+        }
         return createCurve(
                 portPosition(firstPort),
                 portPosition(secondPort),
