@@ -13,14 +13,20 @@ public record MediaPort(
         Direction face,
         Vec3 attachmentPoint,
         PortDirection direction,
+        int connectionLimit,
         Set<MediaSignalType> supportedSignals
 ) {
+    public static final int UNLIMITED_CONNECTIONS = -1;
+
     public MediaPort {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(face, "face");
         Objects.requireNonNull(attachmentPoint, "attachmentPoint");
         Objects.requireNonNull(direction, "direction");
         supportedSignals = Set.copyOf(Objects.requireNonNull(supportedSignals, "supportedSignals"));
+
+        if (connectionLimit != UNLIMITED_CONNECTIONS && connectionLimit < 1)
+            throw new IllegalArgumentException("A media port connection limit must be positive or unlimited");
 
         if (!Double.isFinite(attachmentPoint.x)
                 || !Double.isFinite(attachmentPoint.y)
@@ -37,5 +43,11 @@ public record MediaPort(
 
     public boolean supports(MediaSignalType signalType) {
         return this.supportedSignals.contains(signalType);
+    }
+
+    public boolean canAcceptConnection(int existingConnections) {
+        if (existingConnections < 0)
+            throw new IllegalArgumentException("Existing connection count cannot be negative");
+        return this.connectionLimit == UNLIMITED_CONNECTIONS || existingConnections < this.connectionLimit;
     }
 }

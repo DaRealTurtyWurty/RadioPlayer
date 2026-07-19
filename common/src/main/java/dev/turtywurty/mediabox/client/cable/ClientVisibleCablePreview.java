@@ -1,6 +1,7 @@
 package dev.turtywurty.mediabox.client.cable;
 
 import dev.turtywurty.mediabox.cable.CableItemData;
+import dev.turtywurty.mediabox.cable.CableConnectionRules;
 import dev.turtywurty.mediabox.cable.MediaPortLookup;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.ResolvedMediaPort;
@@ -73,12 +74,25 @@ public final class ClientVisibleCablePreview {
             boolean creative) {
         VisibleCableRouteFactory.PurchasedRoute route = VisibleCableRouteFactory.create(first, second);
         boolean affordable = creative || availableItems >= route.cableItems();
-        boolean clear = VisibleCableCollision.isClear(
+        boolean compatible = CableConnectionRules.directionsAreCompatible(first.port(), second.port());
+        boolean capacityAvailable = CableConnectionRules.hasCapacity(
+                first.port(),
+                ClientCableState.connectionCount(first.endpoint()))
+                && CableConnectionRules.hasCapacity(
+                second.port(),
+                ClientCableState.connectionCount(second.endpoint()));
+        boolean clear = compatible && capacityAvailable && VisibleCableCollision.isClear(
                 level,
                 route.route(),
                 first.endpoint().pos(),
                 second.endpoint().pos());
-        return new Preview(route.route(), affordable && clear, route.cableItems(), !clear);
+        return new Preview(
+                route.route(),
+                affordable && compatible && capacityAvailable && clear,
+                route.cableItems(),
+                compatible && capacityAvailable && !clear,
+                !compatible,
+                !capacityAvailable);
     }
 
     private static ItemStack heldCableStack(Minecraft minecraft) {
@@ -94,7 +108,11 @@ public final class ClientVisibleCablePreview {
     }
 
     private static void showStatus(Minecraft minecraft, Preview preview) {
-        if (preview.blocked()) {
+        if (preview.incompatible()) {
+            minecraft.player.sendOverlayMessage(Component.literal("Those port directions are incompatible"));
+        } else if (preview.full()) {
+            minecraft.player.sendOverlayMessage(Component.literal("That port has reached its connection limit"));
+        } else if (preview.blocked()) {
             minecraft.player.sendOverlayMessage(Component.literal("Cable path is blocked"));
         } else if (preview.valid()) {
             minecraft.player.sendOverlayMessage(Component.literal(
@@ -106,7 +124,13 @@ public final class ClientVisibleCablePreview {
         }
     }
 
-    public record Preview(VisibleCableRoute route, boolean valid, int requiredItems, boolean blocked) {
+    public record Preview(
+            VisibleCableRoute route,
+            boolean valid,
+            int requiredItems,
+            boolean blocked,
+            boolean incompatible,
+            boolean full) {
     }
 
     private record PreviewKey(

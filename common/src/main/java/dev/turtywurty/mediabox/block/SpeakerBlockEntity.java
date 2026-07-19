@@ -71,6 +71,7 @@ public class SpeakerBlockEntity extends BlockEntity implements MediaPortProvider
                 modelFacing.getOpposite(),
                 MediaPortGeometry.rotateFromNorth(speakerAttachmentPoint(speakerType), modelFacing),
                 PortDirection.INPUT,
+                1,
                 Set.of(MediaSignalType.AUDIO)));
     }
 

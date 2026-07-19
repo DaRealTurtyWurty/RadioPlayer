@@ -185,6 +185,12 @@ public final class CableManager {
         return Set.copyOf(this.connectionsByEndpoint.getOrDefault(endpoint, Set.of()));
     }
 
+    public int connectionCount(PortEndpoint endpoint) {
+        Objects.requireNonNull(endpoint, "endpoint");
+        return this.connectionsByEndpoint.getOrDefault(endpoint, Set.of()).size()
+                + this.concealedRunsByTerminal.getOrDefault(endpoint, Set.of()).size();
+    }
+
     public Set<VisibleCableConnection> visibleCablesAt(PortEndpoint endpoint) {
         Objects.requireNonNull(endpoint, "endpoint");
 

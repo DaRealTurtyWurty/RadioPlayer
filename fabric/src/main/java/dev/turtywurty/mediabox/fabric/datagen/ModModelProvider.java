@@ -1,6 +1,7 @@
 package dev.turtywurty.mediabox.fabric.datagen;
 
 import dev.turtywurty.mediabox.MediaBox;
+import dev.turtywurty.mediabox.block.CablePortBlock;
 import dev.turtywurty.mediabox.block.GlobeBlock;
 import dev.turtywurty.mediabox.block.HorizontalDirection8;
 import dev.turtywurty.mediabox.block.ModBlocks;
@@ -23,6 +24,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 
 import static net.minecraft.client.data.models.BlockModelGenerators.NOP;
+import static net.minecraft.client.data.models.BlockModelGenerators.X_ROT_270;
+import static net.minecraft.client.data.models.BlockModelGenerators.X_ROT_90;
 import static net.minecraft.client.data.models.BlockModelGenerators.Y_ROT_180;
 import static net.minecraft.client.data.models.BlockModelGenerators.Y_ROT_270;
 import static net.minecraft.client.data.models.BlockModelGenerators.Y_ROT_90;
@@ -34,6 +37,17 @@ public class ModModelProvider extends FabricModelProvider {
 
     @Override
     public void generateBlockStateModels(BlockModelGenerators blockModelGenerators) {
+        blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
+                ModBlocks.cablePort.asBlock(),
+                new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/cable_port")))))
+                .with(PropertyDispatch.modify(CablePortBlock.FACING)
+                        .select(Direction.DOWN, X_ROT_90)
+                        .select(Direction.UP, X_ROT_270)
+                        .select(Direction.NORTH, NOP)
+                        .select(Direction.SOUTH, Y_ROT_180)
+                        .select(Direction.WEST, Y_ROT_270)
+                        .select(Direction.EAST, Y_ROT_90)));
+
         blockModelGenerators.blockStateOutput.accept(MultiVariantGenerator.dispatch(
                 ModBlocks.radioPlayer.asBlock(),
                 new MultiVariant(WeightedList.of(new Variant(MediaBox.id("block/radio")))))

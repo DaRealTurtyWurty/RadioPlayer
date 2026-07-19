@@ -186,6 +186,7 @@ public class RadioPlayerBlockEntity extends BlockEntity implements AudioSourcePr
                         MediaPortGeometry.modelPoint(10.5, 1.5, 11.0),
                         modelFacing),
                 PortDirection.OUTPUT,
+                MediaPort.UNLIMITED_CONNECTIONS,
                 Set.of(MediaSignalType.AUDIO)));
     }
 

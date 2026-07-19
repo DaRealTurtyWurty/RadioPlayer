@@ -1,5 +1,6 @@
 package dev.turtywurty.mediabox.client.cable;
 
+import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.VisibleCableConnection;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCableRun;
 import dev.turtywurty.mediabox.network.CableSnapshotMessage;
@@ -15,6 +16,7 @@ public final class ClientCableState {
     }
 
     public static void apply(CableSnapshotMessage message) {
+        ClientVisibleCablePreview.invalidate();
         ClientVisibleCableRouteCache.retainConnections(message.visibleConnections());
         ClientConcealedCableRouteCache.retainRuns(message.concealedRuns());
         snapshot = new Snapshot(
@@ -27,7 +29,22 @@ public final class ClientCableState {
         return snapshot;
     }
 
+    public static int connectionCount(PortEndpoint endpoint) {
+        Snapshot current = snapshot;
+        int count = 0;
+        for (VisibleCableConnection connection : current.visibleConnections()) {
+            if (connection.first().equals(endpoint) || connection.second().equals(endpoint))
+                count++;
+        }
+        for (ConcealedCableRun run : current.concealedRuns()) {
+            if (run.terminals().contains(endpoint))
+                count++;
+        }
+        return count;
+    }
+
     public static void clear() {
+        ClientVisibleCablePreview.invalidate();
         ClientVisibleCableRouteCache.clear();
         ClientConcealedCableRouteCache.clear();
         snapshot = Snapshot.EMPTY;

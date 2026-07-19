@@ -2,10 +2,10 @@ package dev.turtywurty.mediabox.item;
 
 import dev.turtywurty.mediabox.cable.CableItemData;
 import dev.turtywurty.mediabox.cable.CableConstants;
+import dev.turtywurty.mediabox.cable.CableConnectionRules;
 import dev.turtywurty.mediabox.cable.CableManager;
 import dev.turtywurty.mediabox.cable.CableSavedData;
 import dev.turtywurty.mediabox.cable.CableSync;
-import dev.turtywurty.mediabox.cable.MediaPort;
 import dev.turtywurty.mediabox.cable.MediaPortLookup;
 import dev.turtywurty.mediabox.cable.MediaSignalType;
 import dev.turtywurty.mediabox.cable.PortDirection;
@@ -90,6 +90,13 @@ public class AudioCableItem extends Item {
         }
 
         try {
+            CableConnectionRules.validateDirections(firstPort.get().port(), clicked.port());
+            CableConnectionRules.validateCapacity(
+                    firstPort.get().port(),
+                    manager.connectionCount(firstPort.get().endpoint()));
+            CableConnectionRules.validateCapacity(
+                    clicked.port(),
+                    manager.connectionCount(clicked.endpoint()));
             boolean concealed = isConcealedTerminal(serverLevel, firstPort.get())
                     && isConcealedTerminal(serverLevel, clicked);
             boolean consumesItems = player == null || !player.isCreative();
@@ -156,8 +163,7 @@ public class AudioCableItem extends Item {
         if (!first.port().supports(MediaSignalType.AUDIO) || !second.port().supports(MediaSignalType.AUDIO))
             throw new IllegalArgumentException("Both ports must support audio");
 
-        if (!directionsAreCompatible(first.port(), second.port()))
-            throw new IllegalArgumentException("Those port directions are incompatible");
+        CableConnectionRules.validateDirections(first.port(), second.port());
 
         validateProspectiveNetwork(level, manager, first, second);
     }
@@ -197,14 +203,6 @@ public class AudioCableItem extends Item {
         return Math.abs(firstInsideWall.getX() - secondInsideWall.getX())
                 + Math.abs(firstInsideWall.getY() - secondInsideWall.getY())
                 + Math.abs(firstInsideWall.getZ() - secondInsideWall.getZ());
-    }
-
-    private static boolean directionsAreCompatible(MediaPort first, MediaPort second) {
-        PortDirection firstDirection = first.direction();
-        PortDirection secondDirection = second.direction();
-        return firstDirection == PortDirection.BIDIRECTIONAL
-                || secondDirection == PortDirection.BIDIRECTIONAL
-                || firstDirection != secondDirection;
     }
 
     private static void notify(Player player, String message) {

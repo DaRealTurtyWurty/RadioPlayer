@@ -27,6 +27,7 @@ public class CablePortBlockEntity extends BlockEntity implements ConcealedCableP
                 getBlockState().getValue(CablePortBlock.FACING),
                 CablePortBlock.attachmentPoint(getBlockState()),
                 PortDirection.BIDIRECTIONAL,
+                MediaPort.UNLIMITED_CONNECTIONS,
                 Set.of(MediaSignalType.AUDIO)));
     }
 }
