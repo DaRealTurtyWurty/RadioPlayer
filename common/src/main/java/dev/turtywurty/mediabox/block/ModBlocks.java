@@ -17,14 +17,19 @@ public class ModBlocks {
     private static final VoxelShape SPEAKER_SHAPE = Shapes.box(0.125, 0, 0.125, 0.875, 1, 0.875);
 
     public static DeferredBlock radioPlayer;
+
     public static DeferredBlock globe;
+
     public static DeferredBlock speaker;
     public static DeferredBlock subwoofer;
     public static DeferredBlock bassReflexSpeaker;
     public static DeferredBlock hornSpeaker;
     public static DeferredBlock bookshelfSpeaker;
     public static DeferredBlock floorStandingSpeaker;
+
     public static DeferredBlock cablePort;
+
+    public static DeferredBlock flatScreen;
 
     public static void initialize(BalmBlockRegistrar blocks) {
         radioPlayer = blocks.register("radio_player", RadioPlayerBlock::new, it ->
@@ -60,6 +65,16 @@ public class ModBlocks {
                                 .sound(SoundType.METAL)
                                 .noOcclusion()
                                 .instabreak())
+                .withItem(BlockItem::new)
+                .asDeferredBlock();
+
+        flatScreen = blocks.register("flat_screen", FlatScreenBlock::new, it ->
+                        it.mapColor(MapColor.COLOR_BLACK)
+                                .instrument(NoteBlockInstrument.BASS)
+                                .strength(2.0F, 6.0F)
+                                .sound(SoundType.WOOD)
+                                .ignitedByLava()
+                                .noOcclusion())
                 .withItem(BlockItem::new)
                 .asDeferredBlock();
     }
