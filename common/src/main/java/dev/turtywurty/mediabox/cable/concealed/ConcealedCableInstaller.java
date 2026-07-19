@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 import java.util.Objects;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,7 +32,7 @@ public final class ConcealedCableInstaller {
         Objects.requireNonNull(firstTerminal, "firstTerminal");
         Objects.requireNonNull(secondTerminal, "secondTerminal");
         Objects.requireNonNull(signalType, "signalType");
-        double cableCapacity = CableConstants.capacityForItems(cableItems);
+        int cableCapacity = CableConstants.capacityForItems(cableItems);
         if (firstTerminal.equals(secondTerminal))
             throw new IllegalArgumentException("A concealed run needs two different wall terminals");
         if (!level.dimension().equals(firstTerminal.dimension())
@@ -42,16 +43,22 @@ public final class ConcealedCableInstaller {
         ResolvedMediaPort secondPort = validateTerminal(level, secondTerminal, signalType);
         BlockPos firstInsideWall = insideWallPosition(firstPort);
         BlockPos secondInsideWall = insideWallPosition(secondPort);
-        int minimumLength = Math.abs(firstInsideWall.getX() - secondInsideWall.getX())
-                + Math.abs(firstInsideWall.getY() - secondInsideWall.getY())
-                + Math.abs(firstInsideWall.getZ() - secondInsideWall.getZ());
+        int minimumLength = ConcealedCableRouting.manhattanDistance(firstInsideWall, secondInsideWall);
         if (minimumLength > cableCapacity)
             throw new IllegalArgumentException("The concealed cable requires more cable items");
+        List<BlockPos> path = ConcealedCableRouting.findShortestPath(
+                        level,
+                        firstInsideWall,
+                        secondInsideWall,
+                        cableCapacity)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Concealed cables can only pass through full blocks"));
 
         ConcealedCableRun run = new ConcealedCableRun(
                 UUID.randomUUID(),
                 signalType,
                 Set.of(firstTerminal, secondTerminal),
+                path,
                 cableItems);
         CableSavedData.get(level).addConcealedCableRun(run);
         CableSync.broadcastSnapshot(level);

@@ -16,6 +16,7 @@ import dev.turtywurty.mediabox.cable.VisibleCableConnection;
 import dev.turtywurty.mediabox.cable.VisibleCableRouteFactory;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCableInstaller;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCablePortProvider;
+import dev.turtywurty.mediabox.cable.concealed.ConcealedCableRouting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionResult;
@@ -113,7 +114,10 @@ public class CableItem extends Item {
             int requiredItems;
 
             if (concealed) {
-                requiredItems = CableConstants.itemsForLength(concealedMinimumLength(firstPort.get(), clicked));
+                requiredItems = concealedRequiredItems(
+                        serverLevel,
+                        firstPort.get(),
+                        clicked);
                 requireCableItems(stack, requiredItems, consumesItems);
                 validateProspectiveNetwork(serverLevel, manager, firstPort.get(), clicked);
                 ConcealedCableInstaller.install(
@@ -215,12 +219,22 @@ public class CableItem extends Item {
         return blockEntity instanceof ConcealedCablePortProvider;
     }
 
-    private static int concealedMinimumLength(ResolvedMediaPort first, ResolvedMediaPort second) {
+    private static int concealedRequiredItems(
+            ServerLevel level,
+            ResolvedMediaPort first,
+            ResolvedMediaPort second) {
         var firstInsideWall = first.endpoint().pos().relative(first.port().face().getOpposite());
         var secondInsideWall = second.endpoint().pos().relative(second.port().face().getOpposite());
-        return Math.abs(firstInsideWall.getX() - secondInsideWall.getX())
-                + Math.abs(firstInsideWall.getY() - secondInsideWall.getY())
-                + Math.abs(firstInsideWall.getZ() - secondInsideWall.getZ());
+        int requiredItems = CableConstants.itemsForLength(
+                ConcealedCableRouting.manhattanDistance(firstInsideWall, secondInsideWall));
+        if (ConcealedCableRouting.findShortestPath(
+                        level,
+                        firstInsideWall,
+                        secondInsideWall,
+                        CableConstants.capacityForItems(requiredItems))
+                .isEmpty())
+            throw new IllegalArgumentException("No concealed cable path through full blocks was found");
+        return requiredItems;
     }
 
     private static void notify(Player player, String message) {

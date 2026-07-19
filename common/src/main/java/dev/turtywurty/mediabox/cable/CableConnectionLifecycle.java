@@ -1,6 +1,7 @@
 package dev.turtywurty.mediabox.cable;
 
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCableRun;
+import dev.turtywurty.mediabox.cable.concealed.ConcealedCableRouting;
 import dev.turtywurty.mediabox.item.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
@@ -15,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-/** Pops visible cables when blocked and returns cable items when connections are removed. */
+/** Pops obstructed or exposed cables and returns cable items when connections are removed. */
 public final class CableConnectionLifecycle {
     private CableConnectionLifecycle() {
     }
@@ -47,6 +48,16 @@ public final class CableConnectionLifecycle {
 
             data.removeVisibleCable(connection.id()).ifPresent(removed ->
                     addCableItems(droppedItems, removed.signalType(), removed.cableItems()));
+        }
+
+        if (!ConcealedCableRouting.canRouteThrough(level, changedPos)) {
+            for (ConcealedCableRun run : List.copyOf(data.manager().concealedCableRuns().values())) {
+                if (!run.path().contains(changedPos))
+                    continue;
+
+                data.removeConcealedCableRun(run.id()).ifPresent(removed ->
+                        addCableItems(droppedItems, removed.signalType(), removed.cableItems()));
+            }
         }
 
         if (!droppedItems.isEmpty()) {

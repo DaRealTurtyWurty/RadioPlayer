@@ -5,12 +5,12 @@ import dev.turtywurty.mediabox.cable.MediaPortLookup;
 import dev.turtywurty.mediabox.cable.PortEndpoint;
 import dev.turtywurty.mediabox.cable.ResolvedMediaPort;
 import dev.turtywurty.mediabox.cable.concealed.ConcealedCableRun;
+import dev.turtywurty.mediabox.cable.concealed.ConcealedCableRouting;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -18,7 +18,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.UUID;
 
@@ -83,95 +82,23 @@ public final class ClientConcealedCableRouteCache {
 
         BlockPos firstInsideWall = insideWallPosition(firstPort.get());
         BlockPos secondInsideWall = insideWallPosition(secondPort.get());
-        Optional<List<BlockPos>> path = findShortestPath(
-                level,
-                firstInsideWall,
-                secondInsideWall,
-                CableConstants.capacityForItems(run.cableItems()));
-        if (path.isEmpty())
+        List<BlockPos> path = run.path();
+        if (path.isEmpty()) {
+            path = ConcealedCableRouting.findShortestPath(
+                            level,
+                            firstInsideWall,
+                            secondInsideWall,
+                            CableConstants.capacityForItems(run.cableItems()))
+                    .orElse(List.of());
+        }
+        if (path.isEmpty() || path.stream().anyMatch(pos -> !ConcealedCableRouting.canRouteThrough(level, pos)))
             return Optional.empty();
 
         List<ClientConcealedCableSegment> segments = buildSegments(
                 firstPort.get(),
                 secondPort.get(),
-                path.get());
-        return Optional.of(new CachedRoute(run, segments, Set.copyOf(path.get())));
-    }
-
-    private static Optional<List<BlockPos>> findShortestPath(
-            ClientLevel level,
-            BlockPos start,
-            BlockPos end,
-            int maxLength) {
-        int minimumLength = manhattanDistance(start, end);
-        if (minimumLength > maxLength || !canRouteThrough(level, start) || !canRouteThrough(level, end))
-            return Optional.empty();
-        if (start.equals(end))
-            return Optional.of(List.of(start.immutable()));
-
-        BlockPos immutableStart = start.immutable();
-        BlockPos immutableEnd = end.immutable();
-        PriorityQueue<RouteNode> pending = new PriorityQueue<>(Comparator
-                .comparingInt(RouteNode::estimatedTotalDistance)
-                .thenComparingInt(RouteNode::distance));
-        Map<BlockPos, BlockPos> previous = new HashMap<>();
-        Map<BlockPos, Integer> distances = new HashMap<>();
-        pending.add(new RouteNode(immutableStart, 0, minimumLength));
-        distances.put(immutableStart, 0);
-
-        while (!pending.isEmpty()) {
-            RouteNode node = pending.remove();
-            BlockPos current = node.pos();
-            int distance = node.distance();
-            if (distance != distances.getOrDefault(current, Integer.MAX_VALUE))
-                continue;
-            if (distance >= maxLength)
-                continue;
-
-            for (Direction direction : Direction.values()) {
-                BlockPos next = current.relative(direction).immutable();
-                int nextDistance = distance + 1;
-                int estimatedTotalDistance = nextDistance + manhattanDistance(next, immutableEnd);
-                if (estimatedTotalDistance > maxLength
-                        || nextDistance >= distances.getOrDefault(next, Integer.MAX_VALUE)
-                        || !canRouteThrough(level, next))
-                    continue;
-
-                previous.put(next, current);
-                distances.put(next, nextDistance);
-                if (next.equals(immutableEnd))
-                    return Optional.of(reconstructPath(previous, immutableStart, immutableEnd));
-                pending.add(new RouteNode(next, nextDistance, estimatedTotalDistance));
-            }
-        }
-
-        return Optional.empty();
-    }
-
-    private static boolean canRouteThrough(ClientLevel level, BlockPos pos) {
-        return level.isLoaded(pos) && !level.getBlockState(pos).isAir();
-    }
-
-    private static int manhattanDistance(BlockPos first, BlockPos second) {
-        return Math.abs(first.getX() - second.getX())
-                + Math.abs(first.getY() - second.getY())
-                + Math.abs(first.getZ() - second.getZ());
-    }
-
-    private static List<BlockPos> reconstructPath(
-            Map<BlockPos, BlockPos> previous,
-            BlockPos start,
-            BlockPos end) {
-        List<BlockPos> path = new ArrayList<>();
-        BlockPos current = end;
-        while (true) {
-            path.add(current);
-            if (current.equals(start))
-                break;
-            current = previous.get(current);
-        }
-        Collections.reverse(path);
-        return List.copyOf(path);
+                path);
+        return Optional.of(new CachedRoute(run, segments, Set.copyOf(path)));
     }
 
     private static List<ClientConcealedCableSegment> buildSegments(
@@ -222,9 +149,6 @@ public final class ClientConcealedCableRouteCache {
             segments = List.copyOf(segments);
             occupiedBlocks = Set.copyOf(occupiedBlocks);
         }
-    }
-
-    private record RouteNode(BlockPos pos, int distance, int estimatedTotalDistance) {
     }
 
     private static void removeRoute(UUID runId) {
