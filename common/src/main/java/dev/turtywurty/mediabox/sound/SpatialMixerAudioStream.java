@@ -63,10 +63,26 @@ public class SpatialMixerAudioStream implements AudioStream {
     }
 
     public void onPlaybackCursor(int currentBufferSampleOffset) {
+        publishPlaybackCursor(this.processedFrames + Math.max(0, currentBufferSampleOffset));
+    }
+
+    public void onPlaybackCursor(
+            double currentBufferOffsetSeconds,
+            double outputLatencySeconds,
+            float playbackPitch
+    ) {
+        double sampleRate = this.outputFormat.getSampleRate();
+        double mixedFrames = this.processedFrames
+                + Math.max(0.0, currentBufferOffsetSeconds) * sampleRate;
+        double queuedForOutputFrames = Math.max(0.0, outputLatencySeconds)
+                * sampleRate
+                * Math.max(0.01F, playbackPitch);
+        publishPlaybackCursor((long) Math.floor(Math.max(0.0, mixedFrames - queuedForOutputFrames)));
+    }
+
+    private void publishPlaybackCursor(long playedFrames) {
         if (this.decodedStream instanceof PlaybackStartedAudioStream playbackStartedStream) {
-            playbackStartedStream.onPlaybackCursor(
-                    this.processedFrames + Math.max(0, currentBufferSampleOffset)
-            );
+            playbackStartedStream.onPlaybackCursor(playedFrames);
         }
     }
 
