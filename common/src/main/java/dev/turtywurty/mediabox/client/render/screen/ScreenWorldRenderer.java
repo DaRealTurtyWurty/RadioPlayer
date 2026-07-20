@@ -14,8 +14,14 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
+import net.minecraft.core.BlockPos;
 import net.minecraft.util.LightCoordsUtil;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 public final class ScreenWorldRenderer {
     private ScreenWorldRenderer() {
@@ -32,16 +38,35 @@ public final class ScreenWorldRenderer {
         if (level == null || minecraft.player == null)
             return;
 
-        ClientVideoManager.uploadLatestFrames();
-
         ClientScreenState.Snapshot snapshot = ClientScreenState.snapshot();
         if (snapshot.dimension() == null || !snapshot.dimension().equals(level.dimension()))
             return;
 
         Vec3 cameraPos = minecraft.gameRenderer.mainCamera().position();
+        Set<UUID> visibleSessions = new HashSet<>();
+        for (ScreenAssembly screenAssembly : snapshot.assemblies().values()) {
+            if (!isVisible(minecraft, screenAssembly))
+                continue;
+            ClientScreenPlaybackState.get(screenAssembly.id())
+                    .ifPresent(state -> visibleSessions.add(state.sessionId()));
+        }
+        ClientVideoManager.uploadLatestFrames(visibleSessions);
+
         for (ScreenAssembly screenAssembly : snapshot.assemblies().values()) {
             submitScreenAssembly(level, cameraPos, poseStack, submitNodeCollector, screenAssembly);
         }
+    }
+
+    private static boolean isVisible(Minecraft minecraft, ScreenAssembly assembly) {
+        BlockPos opposite = assembly.origin()
+                .relative(assembly.right(), assembly.width() - 1)
+                .above(assembly.height() - 1);
+        AABB bounds = AABB.encapsulatingFullBlocks(assembly.origin(), opposite).inflate(0.05);
+        double maximumDistance = minecraft.options.getEffectiveRenderDistance() * 16.0
+                + Math.max(assembly.width(), assembly.height());
+        return bounds.distanceToSqr(minecraft.gameRenderer.mainCamera().position())
+                <= maximumDistance * maximumDistance
+                && minecraft.gameRenderer.mainCamera().getCullFrustum().isVisible(bounds);
     }
 
     private static void submitScreenAssembly(ClientLevel level, Vec3 cameraPos, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, ScreenAssembly screenAssembly) {
@@ -134,7 +159,7 @@ public final class ScreenWorldRenderer {
         return ClientScreenPlaybackState.get(assembly.id())
                 .flatMap(assignment -> ClientVideoManager.get(assignment.sessionId()))
                 .filter(ClientVideoSession::isReady)
-                .map(session -> RenderTypes.entityCutout(session.textureLocation()))
+                .map(ClientVideoSession::renderType)
                 .orElse(CALIBRATION_CARD);
     }
 }

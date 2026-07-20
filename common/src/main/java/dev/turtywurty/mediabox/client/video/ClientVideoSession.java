@@ -1,10 +1,9 @@
 package dev.turtywurty.mediabox.client.video;
 
-import dev.turtywurty.mediabox.MediaBox;
+import dev.turtywurty.mediabox.client.render.screen.PlanarVideoTexture;
+import dev.turtywurty.mediabox.client.render.screen.VideoRenderTypes;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.TextureManager;
-import net.minecraft.resources.Identifier;
+import net.minecraft.client.renderer.rendertype.RenderType;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -12,10 +11,11 @@ import java.nio.file.Path;
 import java.util.OptionalDouble;
 import java.util.UUID;
 
+/** Owns one bounded video decoder, GPU surface, and audio-disciplined presentation clock. */
 public final class ClientVideoSession implements AutoCloseable {
     private final UUID id;
-    private final Identifier textureLocation;
-    private final DynamicTexture texture;
+    private final PlanarVideoTexture texture;
+    private final RenderType renderType;
     private final Path gameDirectory;
     private final String mediaLocation;
     private final int width;
@@ -25,7 +25,8 @@ public final class ClientVideoSession implements AutoCloseable {
     private FfmpegVideoDecoder decoder;
     private double initialPositionSeconds;
     private long decoderStartedNanos;
-    private double playbackRate = 1.0;
+    private volatile ClockAnchor clockAnchor;
+    private volatile double playbackRate = 1.0;
 
     private FfmpegVideoDecoder pendingDecoder;
     private double pendingInitialPositionSeconds;
@@ -34,10 +35,8 @@ public final class ClientVideoSession implements AutoCloseable {
     private boolean pendingDiscontinuity;
     private long discontinuityRevision;
 
-    private boolean receivedFrame;
+    private boolean decoderReady;
     private long firstFrameNanos = -1L;
-
-    private final TextureManager textureManager;
 
     public ClientVideoSession(
             Minecraft minecraft,
@@ -55,57 +54,35 @@ public final class ClientVideoSession implements AutoCloseable {
         this.height = height;
         this.looping = looping;
         this.initialPositionSeconds = startPositionSeconds;
-        this.textureLocation = MediaBox.id("dynamic/video/" + id);
-        this.texture = new DynamicTexture(
-                () -> "MediaBox video " + id,
-                width,
-                height,
-                true
-        );
-
-        minecraft.getTextureManager().register(
-                this.textureLocation,
-                this.texture
-        );
+        this.clockAnchor = new ClockAnchor(startPositionSeconds, System.nanoTime());
+        this.texture = new PlanarVideoTexture(minecraft.getTextureManager(), id, width, height);
+        this.renderType = VideoRenderTypes.nv12(this.texture.yLocation(), this.texture.uvLocation());
 
         this.decoderStartedNanos = System.nanoTime();
-        this.decoder = FfmpegVideoDecoder.open(
-                minecraft.gameDirectory.toPath(),
-                mediaLocation,
-                width,
-                height,
-                30,
-                looping,
-                startPositionSeconds,
-                1.0
-        );
-
-        this.textureManager = minecraft.getTextureManager();
+        this.decoder = openDecoder(startPositionSeconds, 1.0);
     }
 
     public UUID id() {
         return this.id;
     }
 
-    public Identifier textureLocation() {
-        return this.textureLocation;
+    public RenderType renderType() {
+        return this.renderType;
     }
 
     public boolean isReady() {
-        return this.texture != null && this.decoder != null && this.receivedFrame;
+        return this.decoderReady;
     }
 
     public OptionalDouble playbackPositionSeconds() {
-        OptionalDouble outputTime = this.decoder.outputTimeSeconds();
-        return outputTime.isPresent()
-                ? OptionalDouble.of(this.initialPositionSeconds + outputTime.getAsDouble())
-                : OptionalDouble.empty();
+        ClockAnchor anchor = this.clockAnchor;
+        double elapsed = (System.nanoTime() - anchor.nanoTime()) / 1_000_000_000.0;
+        return OptionalDouble.of(anchor.positionSeconds() + elapsed * this.playbackRate);
     }
 
     public OptionalDouble startupDelaySeconds() {
         if (this.firstFrameNanos < 0L)
             return OptionalDouble.empty();
-
         return OptionalDouble.of((this.firstFrameNanos - this.decoderStartedNanos) / 1_000_000_000.0);
     }
 
@@ -125,18 +102,73 @@ public final class ClientVideoSession implements AutoCloseable {
         return this.pendingDecoder != null;
     }
 
+    public boolean isPlaybackStarted() {
+        return true;
+    }
+
     public void beginResync(
             double startPositionSeconds,
             double playbackRate,
             boolean discontinuity
     ) throws IOException {
-        if (this.pendingDecoder != null) {
+        if (this.pendingDecoder != null)
             this.pendingDecoder.close();
-            this.pendingDecoder = null;
+
+        this.pendingInitialPositionSeconds = startPositionSeconds;
+        this.pendingDecoderStartedNanos = System.nanoTime();
+        this.pendingPlaybackRate = playbackRate;
+        this.pendingDiscontinuity = discontinuity;
+        this.pendingDecoder = openDecoder(startPositionSeconds, playbackRate);
+    }
+
+    /** Re-anchors video to the sample position reported by the actual OpenAL source. */
+    public void updateAudioPlaybackPosition(double positionSeconds, long revision) {
+        if (!Double.isFinite(positionSeconds) || positionSeconds < 0.0
+                || revision != this.discontinuityRevision)
+            return;
+        this.clockAnchor = new ClockAnchor(positionSeconds, System.nanoTime());
+    }
+
+    public void setPlaybackRate(double playbackRate) {
+        if (!Double.isFinite(playbackRate) || playbackRate <= 0.0)
+            return;
+        double position = playbackPositionSeconds().orElse(this.clockAnchor.positionSeconds());
+        this.clockAnchor = new ClockAnchor(position, System.nanoTime());
+        this.playbackRate = playbackRate;
+    }
+
+    public void uploadLatestFrame() {
+        if (this.pendingDecoder != null) {
+            ByteBuffer pendingFrame = this.pendingDecoder.takeFrameForPlayback(0.0);
+            if (pendingFrame != null) {
+                FfmpegVideoDecoder previousDecoder = this.decoder;
+                this.decoder = this.pendingDecoder;
+                this.pendingDecoder = null;
+                finishDecoderSwap();
+                try {
+                    uploadFrame(pendingFrame);
+                } finally {
+                    this.decoder.recycleFrame(pendingFrame);
+                }
+                previousDecoder.close();
+                return;
+            }
         }
 
-        long startedNanos = System.nanoTime();
-        FfmpegVideoDecoder replacement = FfmpegVideoDecoder.open(
+        double relativePosition = playbackPositionSeconds().orElse(this.initialPositionSeconds)
+                - this.initialPositionSeconds;
+        ByteBuffer frame = this.decoder.takeFrameForPlayback(relativePosition);
+        if (frame == null)
+            return;
+        try {
+            uploadFrame(frame);
+        } finally {
+            this.decoder.recycleFrame(frame);
+        }
+    }
+
+    private FfmpegVideoDecoder openDecoder(double startPositionSeconds, double rate) throws IOException {
+        return FfmpegVideoDecoder.open(
                 this.gameDirectory,
                 this.mediaLocation,
                 this.width,
@@ -144,55 +176,26 @@ public final class ClientVideoSession implements AutoCloseable {
                 30,
                 this.looping,
                 startPositionSeconds,
-                playbackRate
+                rate
         );
-        this.pendingInitialPositionSeconds = startPositionSeconds;
-        this.pendingDecoderStartedNanos = startedNanos;
-        this.pendingPlaybackRate = playbackRate;
-        this.pendingDiscontinuity = discontinuity;
-        this.pendingDecoder = replacement;
     }
 
-    public void uploadLatestFrame() {
-        if (this.pendingDecoder != null) {
-            byte[] pendingFrame = this.pendingDecoder.takeLatestFrame();
-            if (pendingFrame != null) {
-                FfmpegVideoDecoder previousDecoder = this.decoder;
-                this.decoder = this.pendingDecoder;
-                this.pendingDecoder = null;
-                this.initialPositionSeconds = this.pendingInitialPositionSeconds;
-                this.decoderStartedNanos = this.pendingDecoderStartedNanos;
-                this.playbackRate = this.pendingPlaybackRate;
-                if (this.pendingDiscontinuity) {
-                    this.discontinuityRevision++;
-                }
-                this.pendingDiscontinuity = false;
-                this.firstFrameNanos = System.nanoTime();
-
-                uploadFrame(pendingFrame);
-                previousDecoder.close();
-                return;
-            }
-        }
-
-        byte[] frame = this.decoder.takeLatestFrame();
-        if (frame == null)
-            return;
-
-        uploadFrame(frame);
+    private void finishDecoderSwap() {
+        this.initialPositionSeconds = this.pendingInitialPositionSeconds;
+        this.clockAnchor = new ClockAnchor(this.pendingInitialPositionSeconds, System.nanoTime());
+        this.decoderStartedNanos = this.pendingDecoderStartedNanos;
+        this.playbackRate = this.pendingPlaybackRate;
+        if (this.pendingDiscontinuity)
+            this.discontinuityRevision++;
+        this.pendingDiscontinuity = false;
+        this.firstFrameNanos = System.nanoTime();
     }
 
-    private void uploadFrame(byte[] frame) {
-        ByteBuffer pixels = this.texture.getPixels().getPixelBytes();
-        pixels.clear();
-        pixels.put(frame);
-        pixels.flip();
-
-        this.texture.upload();
-        if (this.firstFrameNanos < 0L) {
+    private void uploadFrame(ByteBuffer frame) {
+        if (this.firstFrameNanos < 0L)
             this.firstFrameNanos = System.nanoTime();
-        }
-        this.receivedFrame = true;
+        this.decoderReady = true;
+        this.texture.upload(frame);
     }
 
     @Override
@@ -202,6 +205,9 @@ public final class ClientVideoSession implements AutoCloseable {
             this.pendingDecoder.close();
             this.pendingDecoder = null;
         }
-        this.textureManager.release(this.textureLocation);
+        this.texture.close();
+    }
+
+    private record ClockAnchor(double positionSeconds, long nanoTime) {
     }
 }

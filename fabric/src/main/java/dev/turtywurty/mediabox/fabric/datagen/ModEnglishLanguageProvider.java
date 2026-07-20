@@ -5,6 +5,8 @@ import dev.turtywurty.mediabox.client.gui.FlatScreenSettingsScreen;
 import dev.turtywurty.mediabox.client.gui.GlobeScreen;
 import dev.turtywurty.mediabox.client.gui.RadioPlayerScreen;
 import dev.turtywurty.mediabox.client.gui.widget.StationListWidget;
+import dev.turtywurty.mediabox.client.ytdlp.YtDlpOnboarding;
+import dev.turtywurty.mediabox.client.ytdlp.YtDlpDownloadScreen;
 import dev.turtywurty.mediabox.item.ModItems;
 import net.fabricmc.fabric.api.datagen.v1.FabricPackOutput;
 import net.fabricmc.fabric.api.datagen.v1.provider.FabricLanguageProvider;
@@ -54,6 +56,22 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         add(translationBuilder, FlatScreenSettingsScreen.TITLE, "Flat Screen");
         add(translationBuilder, FlatScreenSettingsScreen.URL_LABEL, "Video URL");
         add(translationBuilder, FlatScreenSettingsScreen.PLAY_BUTTON, "Play");
+        add(translationBuilder, YtDlpOnboarding.TITLE, "Install optional yt-dlp?");
+        add(translationBuilder, YtDlpOnboarding.DESCRIPTION,
+                "MediaBox can download yt-dlp from its official GitHub release to support video page URLs. "
+                        + "The download is up to 40 MB and is separately licensed under GPLv3+. "
+                        + "If declined, MediaBox will not download it and will not ask again.");
+        add(translationBuilder, YtDlpOnboarding.DOWNLOAD_BUTTON, "Download");
+        add(translationBuilder, YtDlpOnboarding.DECLINE_BUTTON, "Don't ask again");
+        add(translationBuilder, YtDlpDownloadScreen.TITLE, "Installing yt-dlp");
+        add(translationBuilder, YtDlpDownloadScreen.CHECKING, "Checking existing installation...");
+        add(translationBuilder, YtDlpDownloadScreen.VERIFYING, "Verifying existing installation...");
+        translationBuilder.add("screen.mediabox.yt_dlp.progress.downloading", "Downloading from GitHub...");
+        translationBuilder.add("screen.mediabox.yt_dlp.progress.bytes", "%s / %s (%s%%)");
+        add(translationBuilder, YtDlpDownloadScreen.FINALIZING, "Finalizing installation...");
+        add(translationBuilder, YtDlpDownloadScreen.COMPLETE, "yt-dlp installed successfully.");
+        add(translationBuilder, YtDlpDownloadScreen.FAILED,
+                "Download failed. MediaBox will retry next launch.");
     }
 
     private static void add(TranslationBuilder translationBuilder, Component component, String translation) {

@@ -9,6 +9,7 @@
   ],
   "client": [
     "ClientLevelMixin",
+    "ChannelMixin",
     "GuiGraphicsExtractorAccessor",
     "RenderPipelinesAccessor",
     "RenderTypeAccessor",

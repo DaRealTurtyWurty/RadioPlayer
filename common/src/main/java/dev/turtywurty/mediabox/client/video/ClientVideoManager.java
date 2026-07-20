@@ -1,11 +1,15 @@
 package dev.turtywurty.mediabox.client.video;
 
 import dev.turtywurty.mediabox.MediaBox;
+import dev.turtywurty.mediabox.client.ytdlp.YtDlpVideoResolver;
+import dev.turtywurty.mediabox.client.screen.ClientScreenState;
+import dev.turtywurty.mediabox.screen.ScreenAssembly;
 import dev.turtywurty.mediabox.video.PlaybackStatus;
 import dev.turtywurty.mediabox.video.VideoSessionState;
 import dev.turtywurty.mediabox.video.VideoSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
+import net.minecraft.world.phys.Vec3;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -13,16 +17,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class ClientVideoManager {
-    private static final long SYNC_CHECK_INTERVAL_TICKS = 300L;
+    private static final long SYNC_CHECK_INTERVAL_TICKS = 20L;
     private static final long RESYNC_COOLDOWN_TICKS = 300L;
-    private static final double IN_SYNC_THRESHOLD_SECONDS = 0.25;
-    private static final double HARD_SEEK_THRESHOLD_SECONDS = 5.0;
-    private static final double RATE_CORRECTION_WINDOW_SECONDS = 30.0;
-    private static final double MIN_PLAYBACK_RATE = 0.95;
-    private static final double MAX_PLAYBACK_RATE = 1.05;
-    private static final double RATE_CHANGE_THRESHOLD = 0.002;
+    private static final double IN_SYNC_THRESHOLD_SECONDS = 0.075;
+    private static final double HARD_SEEK_THRESHOLD_SECONDS = 2.0;
+    private static final double RATE_CORRECTION_WINDOW_SECONDS = 12.0;
+    private static final double MIN_PLAYBACK_RATE = 0.97;
+    private static final double MAX_PLAYBACK_RATE = 1.03;
+    private static final double RATE_CHANGE_THRESHOLD = 0.001;
 
-    private static final Map<UUID, ClientVideoSession> SESSIONS = new HashMap<>();
+    private static final Map<UUID, ClientVideoSession> SESSIONS = new ConcurrentHashMap<>();
     private static final Set<UUID> STARTING_SESSIONS = new HashSet<>();
     private static final Map<String, Double> DURATION_CACHE = new ConcurrentHashMap<>();
     private static final Map<UUID, Long> LAST_SYNC_CHECK_TICKS = new HashMap<>();
@@ -44,7 +48,7 @@ public final class ClientVideoManager {
 
     public static Optional<AudioClock> getAudioClock(UUID id) {
         ClientVideoSession session = SESSIONS.get(id);
-        if (session == null || !session.isReady())
+        if (session == null)
             return Optional.empty();
 
         OptionalDouble position = session.playbackPositionSeconds();
@@ -59,6 +63,12 @@ public final class ClientVideoManager {
         ));
     }
 
+    public static void updateAudioPlaybackPosition(UUID id, double positionSeconds, long revision) {
+        ClientVideoSession session = SESSIONS.get(id);
+        if (session != null)
+            session.updateAudioPlaybackPosition(positionSeconds, revision);
+    }
+
     public static void remove(UUID id) {
         STARTING_SESSIONS.remove(id);
         LAST_SYNC_CHECK_TICKS.remove(id);
@@ -68,9 +78,11 @@ public final class ClientVideoManager {
             session.close();
     }
 
-    public static void uploadLatestFrames() {
-        for (ClientVideoSession session : SESSIONS.values()) {
-            session.uploadLatestFrame();
+    public static void uploadLatestFrames(Set<UUID> visibleSessions) {
+        for (UUID sessionId : visibleSessions) {
+            ClientVideoSession session = SESSIONS.get(sessionId);
+            if (session != null)
+                session.uploadLatestFrame();
         }
     }
 
@@ -83,6 +95,7 @@ public final class ClientVideoManager {
         }
 
         SESSIONS.clear();
+        YtDlpVideoResolver.clear();
     }
 
     public static void reconcile(Minecraft minecraft) {
@@ -135,23 +148,29 @@ public final class ClientVideoManager {
         }
 
         CompletableFuture.supplyAsync(
-                () -> probeDuration(minecraft, mediaLocation),
+                () -> prepareMedia(minecraft, state.source(), mediaLocation),
                 Util.nonCriticalIoPool()
-        ).whenComplete((duration, throwable) -> minecraft.execute(() -> {
+        ).whenComplete((preparedMedia, throwable) -> minecraft.execute(() -> {
             if (!STARTING_SESSIONS.remove(state.sessionId()))
                 return;
 
             if (throwable != null) {
                 MediaBox.LOGGER.warn(
-                        "Could not probe video session {}; starting without duration metadata",
+                        "Could not prepare video session {}",
                         state.sessionId(),
                         throwable
                 );
+                return;
             }
 
-            OptionalDouble availableDuration = duration == null
-                    ? OptionalDouble.empty()
-                    : duration;
+            if (preparedMedia == null) {
+                MediaBox.LOGGER.warn("No playable media stream could be resolved for video session {}",
+                        state.sessionId());
+                return;
+            }
+
+            PreparedMedia availableMedia = preparedMedia;
+            OptionalDouble availableDuration = availableMedia.durationSeconds();
 
             if (!isStillWanted(state.sessionId()) || minecraft.level == null)
                 return;
@@ -168,13 +187,14 @@ public final class ClientVideoManager {
                 }
             }
 
+            VideoResolution resolution = chooseResolution(minecraft, state.sessionId());
             try {
                 add(new ClientVideoSession(
                         minecraft,
                         state.sessionId(),
-                        mediaLocation,
-                        1280,
-                        720,
+                        availableMedia.mediaLocation(),
+                        resolution.width(),
+                        resolution.height(),
                         state.looping(),
                         startPositionSeconds
                 ));
@@ -188,17 +208,51 @@ public final class ClientVideoManager {
         }));
     }
 
-    private static OptionalDouble probeDuration(Minecraft minecraft, String mediaLocation) {
+    private static PreparedMedia prepareMedia(
+            Minecraft minecraft,
+            VideoSource source,
+            String mediaLocation
+    ) {
         Double cachedDuration = DURATION_CACHE.get(mediaLocation);
-        if (cachedDuration != null)
-            return OptionalDouble.of(cachedDuration);
-
-        OptionalDouble duration = FfmpegVideoProbe.durationSeconds(
+        FfmpegVideoProbe.ProbeResult directProbe = FfmpegVideoProbe.probe(
                 minecraft.gameDirectory.toPath(),
                 mediaLocation
         );
-        duration.ifPresent(value -> DURATION_CACHE.put(mediaLocation, value));
-        return duration;
+        if (directProbe.playable()) {
+            OptionalDouble duration = cachedDuration == null
+                    ? directProbe.durationSeconds()
+                    : OptionalDouble.of(cachedDuration);
+            duration.ifPresent(value -> DURATION_CACHE.put(mediaLocation, value));
+            return new PreparedMedia(mediaLocation, duration, directProbe.hasAudio());
+        }
+
+        if (source instanceof VideoSource.RemoteUrl) {
+            Optional<YtDlpVideoResolver.ResolvedMedia> resolvedLocation = YtDlpVideoResolver.resolve(
+                    minecraft.gameDirectory.toPath(),
+                    mediaLocation
+            );
+            if (resolvedLocation.isPresent()) {
+                String resolved = resolvedLocation.get().url();
+                FfmpegVideoProbe.ProbeResult resolvedProbe = FfmpegVideoProbe.probe(
+                        minecraft.gameDirectory.toPath(),
+                        resolved
+                );
+                if (resolvedProbe.playable()) {
+                    resolvedProbe.durationSeconds().ifPresent(value -> DURATION_CACHE.put(resolved, value));
+                    MediaBox.LOGGER.info("Using a yt-dlp-resolved media stream for a video session");
+                    return new PreparedMedia(resolved, resolvedProbe.durationSeconds(), resolvedProbe.hasAudio());
+                }
+
+                MediaBox.LOGGER.warn("FFmpeg could not open the media stream returned by yt-dlp");
+            }
+        }
+
+        if (source instanceof VideoSource.RemoteUrl)
+            return null;
+
+        // Local/server-defined inputs may still be supported even when FFprobe
+        // cannot obtain complete metadata.
+        return new PreparedMedia(mediaLocation, OptionalDouble.empty(), false);
     }
 
     private static void synchronizeSession(
@@ -207,6 +261,8 @@ public final class ClientVideoManager {
             ClientVideoSession session
     ) {
         if (minecraft.level == null)
+            return;
+        if (!session.isPlaybackStarted())
             return;
 
         long currentTick = minecraft.level.getGameTime();
@@ -220,13 +276,7 @@ public final class ClientVideoManager {
         if (playbackPosition.isEmpty() || session.isResynchronizing())
             return;
 
-        Long lastResyncTick = LAST_RESYNC_TICKS.get(state.sessionId());
-        if (lastResyncTick != null && currentTick - lastResyncTick < RESYNC_COOLDOWN_TICKS)
-            return;
-
-        String mediaLocation = resolveMediaLocation(minecraft, state.source());
-        if (mediaLocation == null)
-            return;
+        String mediaLocation = session.mediaLocation();
 
         Double duration = DURATION_CACHE.get(mediaLocation);
         if (state.looping() && duration == null)
@@ -254,29 +304,27 @@ public final class ClientVideoManager {
         if (!hardSeek && Math.abs(targetRate - session.playbackRate()) < RATE_CHANGE_THRESHOLD)
             return;
 
+        if (!hardSeek) {
+            session.setPlaybackRate(targetRate);
+            return;
+        }
+
+        Long lastResyncTick = LAST_RESYNC_TICKS.get(state.sessionId());
+        if (lastResyncTick != null && currentTick - lastResyncTick < RESYNC_COOLDOWN_TICKS)
+            return;
+
         double expectedStartupDelay = session.startupDelaySeconds().orElse(0.0);
-        double correctedPosition = hardSeek
-                ? desiredPosition + expectedStartupDelay
-                : displayedPosition + expectedStartupDelay * session.playbackRate();
+        double correctedPosition = desiredPosition + expectedStartupDelay;
         if (state.looping()) {
             correctedPosition = wrapPosition(correctedPosition, duration);
         }
 
-        if (hardSeek) {
-            MediaBox.LOGGER.info(
-                    "Hard-resynchronizing video session {} (drift {} seconds)",
-                    state.sessionId(),
-                    String.format(Locale.ROOT, "%.3f", drift)
-            );
-            targetRate = 1.0;
-        } else {
-            MediaBox.LOGGER.info(
-                    "Nudging video session {} to {}x (drift {} seconds)",
-                    state.sessionId(),
-                    String.format(Locale.ROOT, "%.4f", targetRate),
-                    String.format(Locale.ROOT, "%.3f", drift)
-            );
-        }
+        MediaBox.LOGGER.info(
+                "Hard-resynchronizing video session {} (drift {} seconds)",
+                state.sessionId(),
+                String.format(Locale.ROOT, "%.3f", drift)
+        );
+        targetRate = 1.0;
 
         LAST_RESYNC_TICKS.put(state.sessionId(), currentTick);
         try {
@@ -310,6 +358,39 @@ public final class ClientVideoManager {
         return ClientScreenPlaybackState.snapshot().assignments().values().stream()
                 .anyMatch(state -> state.status() == PlaybackStatus.PLAYING
                         && state.sessionId().equals(sessionId));
+    }
+
+    private static VideoResolution chooseResolution(Minecraft minecraft, UUID sessionId) {
+        Vec3 camera = minecraft.gameRenderer.mainCamera().position();
+        double largestProjectedDimension = 0.0;
+        for (Map.Entry<UUID, VideoSessionState> entry
+                : ClientScreenPlaybackState.snapshot().assignments().entrySet()) {
+            if (!entry.getValue().sessionId().equals(sessionId))
+                continue;
+            ScreenAssembly assembly = ClientScreenState.get(entry.getKey()).orElse(null);
+            if (assembly == null)
+                continue;
+
+            Vec3 center = Vec3.atCenterOf(assembly.origin())
+                    .add(
+                            assembly.right().getStepX() * (assembly.width() - 1) * 0.5,
+                            (assembly.height() - 1) * 0.5,
+                            assembly.right().getStepZ() * (assembly.width() - 1) * 0.5
+                    );
+            double distance = Math.max(1.0, center.distanceTo(camera));
+            double focalPixels = minecraft.getWindow().getHeight()
+                    / (2.0 * Math.tan(Math.toRadians(minecraft.gameRenderer.mainCamera().getFov()) * 0.5));
+            double projected = Math.max(assembly.width(), assembly.height()) * focalPixels / distance;
+            largestProjectedDimension = Math.max(largestProjectedDimension, projected);
+        }
+
+        if (largestProjectedDimension == 0.0)
+            return new VideoResolution(854, 480);
+        if (largestProjectedDimension >= 600.0)
+            return new VideoResolution(1280, 720);
+        if (largestProjectedDimension >= 300.0)
+            return new VideoResolution(854, 480);
+        return new VideoResolution(640, 360);
     }
 
     private static double authoritativePositionSeconds(
@@ -367,5 +448,11 @@ public final class ClientVideoManager {
             double playbackRate,
             long discontinuityRevision
     ) {
+    }
+
+    private record PreparedMedia(String mediaLocation, OptionalDouble durationSeconds, boolean hasAudio) {
+    }
+
+    private record VideoResolution(int width, int height) {
     }
 }

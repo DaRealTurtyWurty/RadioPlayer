@@ -30,5 +30,17 @@
   "screen.mediabox.radio_player.stations.empty": "No saved stations",
   "screen.mediabox.radio_player.stop": "Stop",
   "screen.mediabox.radio_player.url": "Stream URL",
-  "screen.mediabox.radio_player.url.apply": "Apply"
+  "screen.mediabox.radio_player.url.apply": "Apply",
+  "screen.mediabox.yt_dlp.decline": "Don't ask again",
+  "screen.mediabox.yt_dlp.description": "MediaBox can download yt-dlp from its official GitHub release to support video page URLs. The download is up to 40 MB and is separately licensed under GPLv3+. If declined, MediaBox will not download it and will not ask again.",
+  "screen.mediabox.yt_dlp.download": "Download",
+  "screen.mediabox.yt_dlp.progress.bytes": "%s / %s (%s%%)",
+  "screen.mediabox.yt_dlp.progress.checking": "Checking existing installation...",
+  "screen.mediabox.yt_dlp.progress.complete": "yt-dlp installed successfully.",
+  "screen.mediabox.yt_dlp.progress.downloading": "Downloading from GitHub...",
+  "screen.mediabox.yt_dlp.progress.failed": "Download failed. MediaBox will retry next launch.",
+  "screen.mediabox.yt_dlp.progress.finalizing": "Finalizing installation...",
+  "screen.mediabox.yt_dlp.progress.title": "Installing yt-dlp",
+  "screen.mediabox.yt_dlp.progress.verifying": "Verifying existing installation...",
+  "screen.mediabox.yt_dlp.title": "Install optional yt-dlp?"
 }
