@@ -35,4 +35,12 @@ public record VideoSessionState(
                             .fieldOf("looping")
                             .forGetter(VideoSessionState::looping)
             ).apply(instance, VideoSessionState::new));
+
+    public double positionAt(long gameTick) {
+        if (this.status != PlaybackStatus.PLAYING)
+            return this.positionAtEpochSeconds;
+
+        long elapsedTicks = Math.max(0L, gameTick - this.epochGameTick);
+        return this.positionAtEpochSeconds + elapsedTicks / 20.0;
+    }
 }

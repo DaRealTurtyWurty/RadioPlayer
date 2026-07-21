@@ -110,7 +110,7 @@ public final class ClientVideoManager {
         Map<UUID, VideoSessionState> wantedSessions = new HashMap<>();
 
         for (VideoSessionState state : snapshot.assignments().values()) {
-            if (state.status() == PlaybackStatus.PLAYING) {
+            if (state.status() != PlaybackStatus.STOPPED) {
                 wantedSessions.putIfAbsent(state.sessionId(), state);
             }
         }
@@ -196,7 +196,9 @@ public final class ClientVideoManager {
                         resolution.width(),
                         resolution.height(),
                         state.looping(),
-                        startPositionSeconds
+                        startPositionSeconds,
+                        availableDuration,
+                        state
                 ));
             } catch (Exception exception) {
                 MediaBox.LOGGER.error(
@@ -265,6 +267,22 @@ public final class ClientVideoManager {
         if (!session.isPlaybackStarted())
             return;
 
+        double desiredPosition = authoritativePositionSeconds(minecraft, state);
+        if (session.hasTransportUpdate(state)) {
+            try {
+                session.applyTransportState(state, desiredPosition);
+            } catch (Exception exception) {
+                MediaBox.LOGGER.error(
+                        "Failed to apply a transport update to video session {}",
+                        state.sessionId(),
+                        exception
+                );
+            }
+            return;
+        }
+        if (state.status() != PlaybackStatus.PLAYING)
+            return;
+
         long currentTick = minecraft.level.getGameTime();
         Long lastCheckTick = LAST_SYNC_CHECK_TICKS.get(state.sessionId());
         if (lastCheckTick != null && currentTick - lastCheckTick < SYNC_CHECK_INTERVAL_TICKS)
@@ -282,7 +300,6 @@ public final class ClientVideoManager {
         if (state.looping() && duration == null)
             return;
 
-        double desiredPosition = authoritativePositionSeconds(minecraft, state);
         double displayedPosition = playbackPosition.getAsDouble();
         double drift;
         if (state.looping()) {
@@ -356,7 +373,7 @@ public final class ClientVideoManager {
 
     private static boolean isStillWanted(UUID sessionId) {
         return ClientScreenPlaybackState.snapshot().assignments().values().stream()
-                .anyMatch(state -> state.status() == PlaybackStatus.PLAYING
+                .anyMatch(state -> state.status() != PlaybackStatus.STOPPED
                         && state.sessionId().equals(sessionId));
     }
 
@@ -397,11 +414,7 @@ public final class ClientVideoManager {
             Minecraft minecraft,
             VideoSessionState state
     ) {
-        long elapsedTicks = Math.max(
-                0L,
-                minecraft.level.getGameTime() - state.epochGameTick()
-        );
-        return state.positionAtEpochSeconds() + elapsedTicks / 20.0;
+        return state.positionAt(minecraft.level.getGameTime());
     }
 
     private static String resolveMediaLocation(

@@ -15,6 +15,8 @@ import org.jspecify.annotations.Nullable;
 import java.util.UUID;
 
 public final class ScreenPlaybackSync {
+    private static final double MAX_SEEK_SECONDS = 365.0 * 24.0 * 60.0 * 60.0;
+
     private ScreenPlaybackSync() {
     }
 
@@ -69,6 +71,78 @@ public final class ScreenPlaybackSync {
         );
 
         upsert(level, new ScreenPlaybackAssignment(screenId, session));
+    }
+
+    public static void togglePaused(ServerLevel level, UUID screenId) {
+        VideoSessionState session = session(level, screenId);
+        if (session == null || session.status() == PlaybackStatus.STOPPED)
+            return;
+
+        long now = level.getGameTime();
+        PlaybackStatus status = session.status() == PlaybackStatus.PLAYING
+                ? PlaybackStatus.PAUSED
+                : PlaybackStatus.PLAYING;
+        updateTransport(level, screenId, session, status, session.positionAt(now), now);
+    }
+
+    public static void seekRelative(ServerLevel level, UUID screenId, double seconds) {
+        VideoSessionState session = session(level, screenId);
+        if (session == null || !Double.isFinite(seconds))
+            return;
+
+        long now = level.getGameTime();
+        updateTransport(
+                level,
+                screenId,
+                session,
+                session.status(),
+                Math.max(0.0, session.positionAt(now) + seconds),
+                now
+        );
+    }
+
+    public static void seekAbsolute(ServerLevel level, UUID screenId, double seconds) {
+        VideoSessionState session = session(level, screenId);
+        if (session == null || !Double.isFinite(seconds))
+            return;
+
+        long now = level.getGameTime();
+        updateTransport(level, screenId, session, session.status(), Math.max(0.0, seconds), now);
+    }
+
+    public static void jumpToPresent(ServerLevel level, UUID screenId) {
+        VideoSessionState session = session(level, screenId);
+        if (session == null)
+            return;
+
+        long now = level.getGameTime();
+        updateTransport(level, screenId, session, PlaybackStatus.PLAYING, 0.0, now);
+    }
+
+    private static @Nullable VideoSessionState session(ServerLevel level, UUID screenId) {
+        return ScreenPlaybackSavedData.get(level)
+                .get(screenId)
+                .map(ScreenPlaybackAssignment::session)
+                .orElse(null);
+    }
+
+    private static void updateTransport(
+            ServerLevel level,
+            UUID screenId,
+            VideoSessionState previous,
+            PlaybackStatus status,
+            double positionSeconds,
+            long epochGameTick
+    ) {
+        var updated = new VideoSessionState(
+                previous.sessionId(),
+                previous.source(),
+                status,
+                epochGameTick,
+                Math.clamp(positionSeconds, 0.0, MAX_SEEK_SECONDS),
+                previous.looping()
+        );
+        upsert(level, new ScreenPlaybackAssignment(screenId, updated));
     }
 
     private static void updateScreenPanels(

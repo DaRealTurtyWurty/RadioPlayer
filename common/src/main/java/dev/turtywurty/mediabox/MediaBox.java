@@ -78,6 +78,30 @@ public class MediaBox {
                 SetScreenVideoUrlMessage.CODEC,
                 SetScreenVideoUrlMessage::handle);
 
+        Balm.networking().registerServerboundPacket(
+                ToggleScreenPlaybackMessage.TYPE,
+                ToggleScreenPlaybackMessage.class,
+                ToggleScreenPlaybackMessage.CODEC,
+                ToggleScreenPlaybackMessage::handle);
+
+        Balm.networking().registerServerboundPacket(
+                SeekScreenPlaybackRelativeMessage.TYPE,
+                SeekScreenPlaybackRelativeMessage.class,
+                SeekScreenPlaybackRelativeMessage.CODEC,
+                SeekScreenPlaybackRelativeMessage::handle);
+
+        Balm.networking().registerServerboundPacket(
+                SeekScreenPlaybackAbsoluteMessage.TYPE,
+                SeekScreenPlaybackAbsoluteMessage.class,
+                SeekScreenPlaybackAbsoluteMessage.CODEC,
+                SeekScreenPlaybackAbsoluteMessage::handle);
+
+        Balm.networking().registerServerboundPacket(
+                JumpScreenPlaybackToPresentMessage.TYPE,
+                JumpScreenPlaybackToPresentMessage.class,
+                JumpScreenPlaybackToPresentMessage.CODEC,
+                JumpScreenPlaybackToPresentMessage::handle);
+
         Balm.networking().registerClientboundPacket(
                 ScreenPlaybackSnapshotMessage.TYPE,
                 ScreenPlaybackSnapshotMessage.class,

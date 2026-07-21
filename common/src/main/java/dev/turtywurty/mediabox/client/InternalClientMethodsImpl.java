@@ -30,6 +30,6 @@ public class InternalClientMethodsImpl implements InternalClientMethods {
                 .map(state -> state.source() instanceof VideoSource.RemoteUrl remote ? remote.url() : "")
                 .orElse("");
 
-        Minecraft.getInstance().gui.setScreen(new FlatScreenSettingsScreen(pos, currentUrl));
+        Minecraft.getInstance().gui.setScreen(new FlatScreenSettingsScreen(pos, screenId, currentUrl));
     }
 }

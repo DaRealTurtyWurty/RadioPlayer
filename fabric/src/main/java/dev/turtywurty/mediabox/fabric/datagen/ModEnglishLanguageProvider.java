@@ -56,6 +56,15 @@ public class ModEnglishLanguageProvider extends FabricLanguageProvider {
         add(translationBuilder, FlatScreenSettingsScreen.TITLE, "Flat Screen");
         add(translationBuilder, FlatScreenSettingsScreen.URL_LABEL, "Video URL");
         add(translationBuilder, FlatScreenSettingsScreen.PLAY_BUTTON, "Play");
+        add(translationBuilder, FlatScreenSettingsScreen.PAUSE_BUTTON, "Pause");
+        add(translationBuilder, FlatScreenSettingsScreen.RESUME_BUTTON, "Resume");
+        add(translationBuilder, FlatScreenSettingsScreen.SEEK_BACKWARD_BUTTON, "-5 sec");
+        add(translationBuilder, FlatScreenSettingsScreen.SEEK_FORWARD_BUTTON, "+5 sec");
+        add(translationBuilder, FlatScreenSettingsScreen.JUMP_TO_PRESENT_BUTTON, "Jump to present");
+        add(translationBuilder, FlatScreenSettingsScreen.NO_MEDIA, "No media");
+        add(translationBuilder, FlatScreenSettingsScreen.LOADING_MEDIA, "Loading media...");
+        add(translationBuilder, FlatScreenSettingsScreen.LIVE_MEDIA, "LIVE");
+        add(translationBuilder, FlatScreenSettingsScreen.PROGRESS, "%s / %s");
         add(translationBuilder, YtDlpOnboarding.TITLE, "Install optional yt-dlp?");
         add(translationBuilder, YtDlpOnboarding.DESCRIPTION,
                 "MediaBox can download yt-dlp from its official GitHub release to support video page URLs. "
