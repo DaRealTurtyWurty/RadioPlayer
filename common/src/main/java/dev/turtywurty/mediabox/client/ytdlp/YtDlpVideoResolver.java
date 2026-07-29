@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -25,10 +26,14 @@ import java.util.concurrent.TimeoutException;
 public final class YtDlpVideoResolver {
     private static final long TIMEOUT_SECONDS = 45L;
     private static final long CACHE_LIFETIME_NANOS = Duration.ofMinutes(30).toNanos();
+    private static final long LIVE_CACHE_LIFETIME_NANOS = Duration.ofSeconds(15).toNanos();
     private static final int MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
     private static final String FORMAT_SELECTOR = "b[protocol^=http]/b";
+    private static final String TWITCH_WEB_CLIENT_ARGS =
+            "twitch:client_id=kimne78kx3ncx6brgo4mv6wki5h1ko";
     private static final Map<String, CachedMedia> CACHE = new ConcurrentHashMap<>();
     private static final Map<String, Map<String, String>> HEADERS_BY_MEDIA_URL = new ConcurrentHashMap<>();
+    private static final Set<String> LIVE_MEDIA_URLS = ConcurrentHashMap.newKeySet();
 
     private YtDlpVideoResolver() {
     }
@@ -36,7 +41,10 @@ public final class YtDlpVideoResolver {
     public static Optional<ResolvedMedia> resolve(Path gameDirectory, String pageUrl) {
         CachedMedia cached = CACHE.get(pageUrl);
         long now = System.nanoTime();
-        if (cached != null && now - cached.resolvedAtNanos() < CACHE_LIFETIME_NANOS) {
+        long cacheLifetime = cached != null && cached.media().live()
+                ? LIVE_CACHE_LIFETIME_NANOS
+                : CACHE_LIFETIME_NANOS;
+        if (cached != null && now - cached.resolvedAtNanos() < cacheLifetime) {
             registerHeaders(cached.media());
             return Optional.of(cached.media());
         }
@@ -77,9 +85,14 @@ public final class YtDlpVideoResolver {
         return block.isEmpty() ? List.of() : List.of("-headers", block.toString());
     }
 
+    public static boolean isLiveMedia(String mediaUrl) {
+        return LIVE_MEDIA_URLS.contains(mediaUrl);
+    }
+
     public static void clear() {
         CACHE.clear();
         HEADERS_BY_MEDIA_URL.clear();
+        LIVE_MEDIA_URLS.clear();
     }
 
     private static Optional<ResolvedMedia> resolveWithExecutable(Path executable, String pageUrl) {
@@ -94,6 +107,10 @@ public final class YtDlpVideoResolver {
                     "--no-progress",
                     "--skip-download",
                     "--socket-timeout", "15",
+                    // yt-dlp otherwise identifies as Twitch's smart-TV client,
+                    // which can be left on the commercial-break fallback feed.
+                    // The normal web player can receive and finish the ad media.
+                    "--extractor-args", TWITCH_WEB_CLIENT_ARGS,
                     "--format", FORMAT_SELECTOR,
                     "--dump-single-json",
                     "--",
@@ -164,7 +181,9 @@ public final class YtDlpVideoResolver {
             if (selected != root)
                 copyHeaders(selected, headers);
             headers.putIfAbsent("Referer", pageUrl);
-            return new ResolvedMedia(url, headers);
+            boolean live = booleanValue(root, "is_live")
+                    || "is_live".equals(string(root, "live_status").orElse(""));
+            return new ResolvedMedia(url, headers, live);
         } catch (RuntimeException exception) {
             MediaBox.LOGGER.warn("Could not parse yt-dlp media metadata", exception);
             return null;
@@ -200,9 +219,18 @@ public final class YtDlpVideoResolver {
                 : Optional.empty();
     }
 
+    private static boolean booleanValue(JsonObject object, String field) {
+        JsonElement element = object.get(field);
+        return element != null && element.isJsonPrimitive()
+                && element.getAsJsonPrimitive().isBoolean()
+                && element.getAsBoolean();
+    }
+
     private static void registerHeaders(ResolvedMedia media) {
         if (!media.httpHeaders().isEmpty())
             HEADERS_BY_MEDIA_URL.put(media.url(), media.httpHeaders());
+        if (media.live())
+            LIVE_MEDIA_URLS.add(media.url());
     }
 
     private static boolean isAllowedRemoteUrl(String value) {
@@ -216,7 +244,7 @@ public final class YtDlpVideoResolver {
         }
     }
 
-    public record ResolvedMedia(String url, Map<String, String> httpHeaders) {
+    public record ResolvedMedia(String url, Map<String, String> httpHeaders, boolean live) {
         public ResolvedMedia {
             httpHeaders = Map.copyOf(httpHeaders);
         }

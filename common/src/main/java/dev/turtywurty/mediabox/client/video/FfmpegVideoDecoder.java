@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Video-only FFmpeg transport. Frames are NV12 direct buffers kept in a tiny
@@ -22,6 +23,7 @@ import java.util.Locale;
 public final class FfmpegVideoDecoder implements AutoCloseable {
     private static final int MAX_QUEUED_FRAMES = 3;
     private static final int READ_CHUNK_BYTES = 64 * 1024;
+    private static final long STALL_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(20);
 
     private final Process process;
     private final Thread decoderThread;
@@ -34,6 +36,7 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
     private final Object frameLock = new Object();
 
     private long decodedFrames;
+    private volatile long lastFrameNanos = System.nanoTime();
     private volatile boolean ready;
     private volatile boolean closed;
 
@@ -73,6 +76,7 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
         List<String> command = new ArrayList<>();
         command.addAll(List.of(
                 ffmpeg.toString(), "-nostdin", "-hide_banner", "-loglevel", "error", "-nostats",
+                "-rw_timeout", "10000000",
                 "-readrate", String.format(Locale.ROOT, "%.5f", playbackRate)
         ));
         if (looping) {
@@ -100,6 +104,12 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
 
     public boolean hasFrame() {
         return this.ready;
+    }
+
+    /** True when a live input has ended or has stopped yielding complete frames. */
+    public boolean hasStalled() {
+        return !this.closed && (!this.process.isAlive()
+                || System.nanoTime() - this.lastFrameNanos >= STALL_TIMEOUT_NANOS);
     }
 
     public @Nullable ByteBuffer takeFrameForPlayback(double relativePositionSeconds) {
@@ -142,6 +152,7 @@ public final class FfmpegVideoDecoder implements AutoCloseable {
                         recycleBuffer(this.frames.removeFirst().pixels());
                     this.frames.addLast(new VideoFrame(this.decodedFrames++, pixels));
                     this.ready = true;
+                    this.lastFrameNanos = System.nanoTime();
                 }
             }
         } catch (IOException exception) {

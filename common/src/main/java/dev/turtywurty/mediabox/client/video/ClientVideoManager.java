@@ -119,6 +119,10 @@ public final class ClientVideoManager {
             ClientVideoSession session = SESSIONS.get(state.sessionId());
             if (session == null) {
                 ensureSession(minecraft, state);
+            } else if (state.status() == PlaybackStatus.PLAYING && session.needsLiveRestart()) {
+                MediaBox.LOGGER.warn("Restarting stalled live video session {}", state.sessionId());
+                remove(state.sessionId());
+                ensureSession(minecraft, state);
             } else {
                 synchronizeSession(minecraft, state, session);
             }
@@ -176,7 +180,9 @@ public final class ClientVideoManager {
                 return;
 
             double startPositionSeconds = authoritativePositionSeconds(minecraft, state);
-            if (state.looping()) {
+            if (availableMedia.live()) {
+                startPositionSeconds = 0.0;
+            } else if (state.looping()) {
                 if (availableDuration.isPresent()) {
                     startPositionSeconds %= availableDuration.getAsDouble();
                 } else {
@@ -196,6 +202,7 @@ public final class ClientVideoManager {
                         resolution.width(),
                         resolution.height(),
                         state.looping(),
+                        availableMedia.live(),
                         startPositionSeconds,
                         availableDuration,
                         state
@@ -225,7 +232,7 @@ public final class ClientVideoManager {
                     ? directProbe.durationSeconds()
                     : OptionalDouble.of(cachedDuration);
             duration.ifPresent(value -> DURATION_CACHE.put(mediaLocation, value));
-            return new PreparedMedia(mediaLocation, duration, directProbe.hasAudio());
+            return new PreparedMedia(mediaLocation, duration, directProbe.hasAudio(), false);
         }
 
         if (source instanceof VideoSource.RemoteUrl) {
@@ -242,7 +249,12 @@ public final class ClientVideoManager {
                 if (resolvedProbe.playable()) {
                     resolvedProbe.durationSeconds().ifPresent(value -> DURATION_CACHE.put(resolved, value));
                     MediaBox.LOGGER.info("Using a yt-dlp-resolved media stream for a video session");
-                    return new PreparedMedia(resolved, resolvedProbe.durationSeconds(), resolvedProbe.hasAudio());
+                    return new PreparedMedia(
+                            resolved,
+                            resolvedProbe.durationSeconds(),
+                            resolvedProbe.hasAudio(),
+                            resolvedLocation.get().live()
+                    );
                 }
 
                 MediaBox.LOGGER.warn("FFmpeg could not open the media stream returned by yt-dlp");
@@ -254,7 +266,7 @@ public final class ClientVideoManager {
 
         // Local/server-defined inputs may still be supported even when FFprobe
         // cannot obtain complete metadata.
-        return new PreparedMedia(mediaLocation, OptionalDouble.empty(), false);
+        return new PreparedMedia(mediaLocation, OptionalDouble.empty(), false, false);
     }
 
     private static void synchronizeSession(
@@ -281,6 +293,8 @@ public final class ClientVideoManager {
             return;
         }
         if (state.status() != PlaybackStatus.PLAYING)
+            return;
+        if (session.isLiveStream())
             return;
 
         long currentTick = minecraft.level.getGameTime();
@@ -463,7 +477,12 @@ public final class ClientVideoManager {
     ) {
     }
 
-    private record PreparedMedia(String mediaLocation, OptionalDouble durationSeconds, boolean hasAudio) {
+    private record PreparedMedia(
+            String mediaLocation,
+            OptionalDouble durationSeconds,
+            boolean hasAudio,
+            boolean live
+    ) {
     }
 
     private record VideoResolution(int width, int height) {

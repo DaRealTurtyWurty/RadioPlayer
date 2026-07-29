@@ -83,7 +83,8 @@ public final class FfmpegAudioStream implements PlaybackStartedAudioStream {
             command.add("-1");
         }
 
-        if (effectiveState.startPositionSeconds() > 0.0) {
+        if (effectiveState.startPositionSeconds() > 0.0
+                && !YtDlpVideoResolver.isLiveMedia(mediaLocation)) {
             command.add("-ss");
             command.add(String.format(Locale.ROOT, "%.3f", effectiveState.startPositionSeconds()));
         }

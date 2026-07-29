@@ -24,6 +24,7 @@ public final class ClientVideoSession implements AutoCloseable {
     private final int width;
     private final int height;
     private final boolean looping;
+    private final boolean liveStream;
     private final OptionalDouble durationSeconds;
 
     private @Nullable FfmpegVideoDecoder decoder;
@@ -54,6 +55,7 @@ public final class ClientVideoSession implements AutoCloseable {
             int width,
             int height,
             boolean looping,
+            boolean liveStream,
             double startPositionSeconds,
             OptionalDouble durationSeconds,
             VideoSessionState state
@@ -64,16 +66,17 @@ public final class ClientVideoSession implements AutoCloseable {
         this.width = width;
         this.height = height;
         this.looping = looping;
+        this.liveStream = liveStream;
         this.durationSeconds = durationSeconds;
-        this.initialPositionSeconds = startPositionSeconds;
-        this.clockAnchor = new ClockAnchor(startPositionSeconds, System.nanoTime());
+        this.initialPositionSeconds = decoderPosition(startPositionSeconds);
+        this.clockAnchor = new ClockAnchor(this.initialPositionSeconds, System.nanoTime());
         this.paused = state.status() == PlaybackStatus.PAUSED;
         markTransportState(state);
         this.texture = new PlanarVideoTexture(minecraft.getTextureManager(), id, width, height);
         this.renderType = VideoRenderTypes.nv12(this.texture.yLocation(), this.texture.uvLocation());
 
         this.decoderStartedNanos = System.nanoTime();
-        this.decoder = openDecoder(startPositionSeconds, 1.0);
+        this.decoder = openDecoder(this.initialPositionSeconds, 1.0);
     }
 
     public UUID id() {
@@ -114,6 +117,15 @@ public final class ClientVideoSession implements AutoCloseable {
         return this.mediaLocation;
     }
 
+    public boolean isLiveStream() {
+        return this.liveStream;
+    }
+
+    public boolean needsLiveRestart() {
+        return this.liveStream && this.pendingDecoder == null
+                && (this.decoder == null || this.decoder.hasStalled());
+    }
+
     public long discontinuityRevision() {
         return this.discontinuityRevision;
     }
@@ -136,6 +148,7 @@ public final class ClientVideoSession implements AutoCloseable {
     }
 
     public void applyTransportState(VideoSessionState state, double positionSeconds) throws IOException {
+        positionSeconds = decoderPosition(positionSeconds);
         boolean pausing = this.synchronizedStatus == PlaybackStatus.PLAYING
                 && state.status() == PlaybackStatus.PAUSED;
         this.clockAnchor = new ClockAnchor(positionSeconds, System.nanoTime());
@@ -159,6 +172,7 @@ public final class ClientVideoSession implements AutoCloseable {
             double playbackRate,
             boolean discontinuity
     ) throws IOException {
+        startPositionSeconds = decoderPosition(startPositionSeconds);
         if (this.pendingDecoder != null) {
             this.pendingDecoder.close();
             this.pendingDecoder = null;
@@ -243,7 +257,7 @@ public final class ClientVideoSession implements AutoCloseable {
                 this.width,
                 this.height,
                 30,
-                this.looping,
+                this.looping && !this.liveStream,
                 startPositionSeconds,
                 rate
         );
@@ -280,6 +294,13 @@ public final class ClientVideoSession implements AutoCloseable {
             return;
         this.decoder.close();
         this.decoder = null;
+    }
+
+    private double decoderPosition(double requestedPositionSeconds) {
+        // A live HLS URL exposes a short sliding window, not a seekable timeline.
+        // Seeking by the server session's age can strand FFmpeg on an old ad
+        // discontinuity instead of attaching it to the current live edge.
+        return this.liveStream ? 0.0 : requestedPositionSeconds;
     }
 
     @Override
